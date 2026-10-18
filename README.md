@@ -13,6 +13,7 @@ Requires Node 24 and npm 11. No Docker needed.
    - `DATABASE_URL`: only set in production. When unset, the app uses a local PGlite database in `.data/`.
    - `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: Auth.js with Google sign-in.
    - `OWNER_EMAIL`: the owner account's email.
+   - See [docs/google-setup.md](docs/google-setup.md) for the step-by-step Google setup.
 3. `npm run dev` serves on http://localhost:3000
 4. `npm test` runs Vitest.
 
