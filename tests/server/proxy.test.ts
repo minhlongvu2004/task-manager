@@ -23,7 +23,7 @@ describe("proxy matcher", () => {
 
 describe("authorized callback", () => {
   it("keeps sign-in, not-invited and auth routes public", () => {
-    for (const p of ["/signin", "/not-invited", "/api/auth/callback/google", "/api/auth/callback/resend"]) expect(check(p, false)).toBe(true);
+    for (const p of ["/signin", "/signin/confirm", "/not-invited", "/api/auth/callback/google", "/api/auth/callback/resend"]) expect(check(p, false)).toBe(true);
   });
   it("lets the healthcheck and cron routes through without a session", () => {
     for (const p of ["/api/health", "/api/cron/purge"]) expect(check(p, false)).toBe(true);
@@ -32,7 +32,7 @@ describe("authorized callback", () => {
     for (const p of ["/api/health/x", "/api/cron/other", "/api/cron"]) expect(check(p, false)).toBe(false);
   });
   it("keeps /signin and /not-invited public by exact match only", () => {
-    for (const p of ["/signin/x", "/not-invited/x", "/signinx", "/not-invitedx"]) expect(check(p, false), p).toBe(false);
+    for (const p of ["/signin/x", "/signin/confirm/x", "/not-invited/x", "/signinx", "/not-invitedx"]) expect(check(p, false), p).toBe(false);
   });
   it("requires a session elsewhere", () => {
     expect(check("/projects/1", false)).toBe(false);

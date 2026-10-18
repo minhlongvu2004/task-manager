@@ -12,7 +12,26 @@ export function setEmailSender(sender: EmailSender | null): void {
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-export function buildLoginEmail(url: string) {
+const CALLBACK_PREFIX = "/api/auth/callback/resend?";
+
+/**
+ * Mail scanners (Outlook Safe Links and the like) fetch every link in a message, which would use up the
+ * one-time token. The email therefore links to a page that does nothing on GET; the token is only spent
+ * when the person presses its button.
+ */
+export function confirmPageUrl(url: string): string {
+  const u = new URL(url);
+  return `${u.origin}/signin/confirm?next=${encodeURIComponent(u.pathname + u.search)}`;
+}
+
+/** Returns `next` only if it is the email sign-in callback on this site (path and query, never another host). */
+export function safeCallbackPath(next: unknown): string | null {
+  if (typeof next !== "string" || !next.startsWith(CALLBACK_PREFIX)) return null;
+  return next;
+}
+
+export function buildLoginEmail(callbackUrl: string) {
+  const url = confirmPageUrl(callbackUrl);
   const { host } = new URL(url);
   const subject = `Sign in to ${host}`;
   const text = `Sign in to Task Manager:\n\n${url}\n\nThis link expires in ${LOGIN_LINK_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;

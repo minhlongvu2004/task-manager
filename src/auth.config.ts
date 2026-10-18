@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 /** Safe only because the signIn callback requires email_verified and the allowlist; see auth-adapter.ts. */
 export const GOOGLE_OPTIONS = { allowDangerousEmailAccountLinking: true };
 
-const PUBLIC_PATHS = ["/signin", "/not-invited"];
+const PUBLIC_PATHS = ["/signin", "/signin/confirm", "/not-invited"];
 
 /** Edge-safe config (no DB imports); shared by src/auth.ts and src/proxy.ts. */
 export const authConfig = {

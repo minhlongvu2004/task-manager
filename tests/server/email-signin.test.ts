@@ -163,9 +163,19 @@ describe("sendLoginEmail", () => {
     const { buildLoginEmail } = await import("@/server/email");
     const m = buildLoginEmail(`${O}/api/auth/callback/resend?a=1&b="><script>x</script>`);
     expect(m.html).not.toContain("<script>");
-    expect(m.html).toContain("&amp;b=&quot;&gt;&lt;script&gt;");
+    expect(m.html).toContain(`${O}/signin/confirm?next=`);
+    expect(m.html).not.toContain("/api/auth/callback");
+    expect(m.text).not.toContain("/api/auth/callback");
     expect(m.html).toContain("expires in 15 minutes");
     expect(m.text).toContain("expires in 15 minutes");
+  });
+  it("only accepts the email callback path for the confirm button", async () => {
+    const { safeCallbackPath } = await import("@/server/email");
+    expect(safeCallbackPath("/api/auth/callback/resend?token=a&email=b")).toBe("/api/auth/callback/resend?token=a&email=b");
+    expect(safeCallbackPath("https://evil.example/api/auth/callback/resend?x=1")).toBeNull();
+    expect(safeCallbackPath("//evil.example/")).toBeNull();
+    expect(safeCallbackPath("/api/auth/signout")).toBeNull();
+    expect(safeCallbackPath(undefined)).toBeNull();
   });
   it("refuses to use the real sender under test", async () => {
     const { sendLoginEmail } = await import("@/server/email");
