@@ -12,6 +12,7 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: "node",
+          testTimeout: 30_000, // PGlite (WASM) startup can be slow when files run in parallel
           environment: "node",
           include: ["tests/**/*.test.ts"],
           exclude: ["tests/components/**"],

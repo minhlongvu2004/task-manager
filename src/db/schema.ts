@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { STATUS_ORDER, type TaskStatus } from "@/lib/domain/status";
 import type { Priority } from "@/lib/domain/project-view";
 
@@ -28,14 +28,18 @@ export const allowedEmails = pgTable("allowed_emails", {
   email: text("email").primaryKey(),
 });
 
-export const teams = pgTable("teams", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  color: text("color"),
-});
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color"),
+  },
+  (t) => [index("teams_workspace_id_idx").on(t.workspaceId)],
+);
 
 export const teamMembers = pgTable(
   "team_members",
@@ -47,7 +51,10 @@ export const teamMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.teamId, t.userId] })],
+  (t) => [
+    primaryKey({ columns: [t.teamId, t.userId] }),
+    index("team_members_user_id_idx").on(t.userId),
+  ],
 );
 
 export const projects = pgTable(
@@ -63,6 +70,7 @@ export const projects = pgTable(
     state: text("state").$type<ProjectState>().notNull().default("active"),
   },
   (t) => [
+    index("projects_team_id_idx").on(t.teamId),
     check("projects_priority_check", inList("priority", PRIORITIES)),
     check("projects_state_check", inList("state", PROJECT_STATES)),
   ],
@@ -83,5 +91,9 @@ export const tasks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (t) => [check("tasks_status_check", inList("status", STATUS_ORDER))],
+  (t) => [
+    check("tasks_status_check", inList("status", STATUS_ORDER)),
+    index("tasks_project_id_idx").on(t.projectId).where(sql`deleted_at is null`),
+    index("tasks_owner_id_idx").on(t.ownerId),
+  ],
 );

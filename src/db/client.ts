@@ -16,17 +16,17 @@ import * as schema from "./schema";
  *  - otherwise             -> PGlite persisted in .data/dev
  * Both drivers are migrated from ./drizzle by ensureMigrated() (once per process).
  */
-const migrationsFolder = path.join(process.cwd(), "drizzle");
+const migrationsFolder = () => path.join(process.cwd(), "drizzle");
 
 function create() {
   const url = process.env.DATABASE_URL;
   if (url) {
     const db = drizzlePg(postgres(url), { schema });
-    return { db, migrate: () => migratePg(db, { migrationsFolder }) };
+    return { db, migrate: () => migratePg(db, { migrationsFolder: migrationsFolder() }) };
   }
   const dataDir = process.env.NODE_ENV === "test" ? undefined : ".data/dev";
   const db = drizzlePglite(new PGlite(dataDir), { schema });
-  return { db, migrate: () => migratePglite(db, { migrationsFolder }) };
+  return { db, migrate: () => migratePglite(db, { migrationsFolder: migrationsFolder() }) };
 }
 
 // Cached on globalThis so Next dev hot reloads do not open a second PGlite on the same directory.
@@ -34,10 +34,24 @@ type Instance = ReturnType<typeof create> & { ready?: Promise<void> };
 const g = globalThis as unknown as { __tm?: Instance };
 const instance: Instance = (g.__tm ??= create());
 
-// Typed as the Postgres driver; PGlite exposes the same query API.
+// Typed as the Postgres driver. PGlite is cast to that type: the query API is identical and only
+// the `$client` property differs. Prefer getDb(), which guarantees migrations have run.
 export const db = instance.db as unknown as ReturnType<typeof drizzlePg<typeof schema>>;
 
-/** Applies pending migrations; safe to call repeatedly (runs once). */
+/**
+ * Applies pending migrations; runs once per process. A failed run is not cached, so the next call
+ * retries. For Postgres in production, Task 9's start script runs this same function before serving.
+ */
 export function ensureMigrated(): Promise<void> {
-  return (instance.ready ??= instance.migrate());
+  instance.ready ??= instance.migrate().catch((err) => {
+    instance.ready = undefined;
+    throw err;
+  });
+  return instance.ready;
+}
+
+/** The safe entry point for app code: migrates first, then returns the client. */
+export async function getDb() {
+  await ensureMigrated();
+  return db;
 }
