@@ -21,12 +21,16 @@ export function buildLoginEmail(url: string) {
   return { subject, text, html };
 }
 
-async function sendWithResend(to: string, url: string): Promise<void> {
+export const RESEND_TIMEOUT_MS = 10_000;
+
+/** Exported for tests only; use sendLoginEmail. */
+export async function sendWithResend(to: string, url: string, timeoutMs = RESEND_TIMEOUT_MS): Promise<void> {
   const key = process.env.AUTH_RESEND_KEY;
   if (!key) throw new Error("AUTH_RESEND_KEY is not set");
   const { subject, text, html } = buildLoginEmail(url);
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(timeoutMs), // a hung Resend call must not hang sign-in
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from: process.env.EMAIL_FROM || "login@minhlongvu.com", to, subject, text, html }),
   });

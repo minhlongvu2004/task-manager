@@ -1,11 +1,14 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
+/** Safe only because the signIn callback requires email_verified and the allowlist; see auth-adapter.ts. */
+export const GOOGLE_OPTIONS = { allowDangerousEmailAccountLinking: true };
+
 const PUBLIC_PATHS = ["/signin", "/not-invited"];
 
 /** Edge-safe config (no DB imports); shared by src/auth.ts and src/proxy.ts. */
 export const authConfig = {
-  providers: [Google],
+  providers: [Google(GOOGLE_OPTIONS)],
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
   pages: { signIn: "/signin", error: "/not-invited", verifyRequest: "/verify-request" },
   callbacks: {

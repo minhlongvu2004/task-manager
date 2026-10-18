@@ -17,7 +17,21 @@ const toAdapterUser = (u: { id: string; email: string; name: string | null }): A
   emailVerified: null,
 });
 
+/*
+ * The adapter is attached to the whole Auth.js instance, so the Google (OAuth) path calls it too.
+ * Google must keep working unchanged: getUserByAccount returns null (we store no provider
+ * accounts), linkAccount is a no-op, and Google is configured with allowDangerousEmailAccountLinking
+ * so handleLoginOrRegister reuses the users row by email instead of throwing OAuthAccountNotLinked.
+ * That is safe because the signIn callback runs first and already requires email_verified === true
+ * and the allowlist, and ensureUserOnSignIn has created/reused the row keyed by that email.
+ * Emails are normalized with normalizeEmail (trim + lowercase); Auth.js's own normalizer also does
+ * NFKC and rejects malformed addresses before they reach us, so the two agree for valid input.
+ */
 export const authAdapter: Adapter = {
+  async getUserByAccount() {
+    return null;
+  },
+  async linkAccount() {},
   async createVerificationToken(t) {
     // Strangers get the same screen but no stored token (and no email is sent).
     if (!(await isEmailAllowed(t.identifier))) return t;

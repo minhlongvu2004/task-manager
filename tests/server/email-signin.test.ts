@@ -173,3 +173,35 @@ describe("sendLoginEmail", () => {
     await expect(sendLoginEmail("a@example.com", `${O}/x`)).rejects.toThrow("No email sender");
   });
 });
+
+describe("Resend request timeout", () => {
+  const hang = () =>
+    vi.stubGlobal(
+      "fetch",
+      (_url: unknown, init: RequestInit) =>
+        new Promise((_res, rej) => init.signal!.addEventListener("abort", () => rej(init.signal!.reason))),
+    );
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("aborts a hung request without leaking the URL or token", async () => {
+    process.env.AUTH_RESEND_KEY = "k";
+    hang();
+    const { sendWithResend } = await import("@/server/email");
+    const err = await sendWithResend("a@example.com", `${O}/cb?token=SECRET`, 30).catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(String(err.message)).not.toContain("SECRET");
+    delete process.env.AUTH_RESEND_KEY;
+  });
+
+  it("leaves the sign-in response unchanged when the send times out", async () => {
+    process.env.AUTH_RESEND_KEY = "k";
+    hang();
+    const { sendWithResend } = await import("@/server/email");
+    setEmailSender((to, url) => sendWithResend(to, url, 30));
+    await db.insert(allowedEmails).values({ email: "friend@example.com" });
+    const res = await requestLink("friend@example.com");
+    expect(res.headers.get("location")).toContain("/verify-request");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("token=");
+    delete process.env.AUTH_RESEND_KEY;
+  });
+});
