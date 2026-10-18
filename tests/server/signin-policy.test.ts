@@ -45,6 +45,8 @@ describe("ensureUserOnSignIn", () => {
     expect(ws.ownerUserId).toBe(first?.id);
   });
 
+  // Note: PGlite serializes queries, so this cannot demonstrate a real race; the advisory lock
+  // matters on Postgres (postgres-js pool). This only guards the logic against duplicates.
   it("is safe under concurrent calls", async () => {
     const results = await Promise.all([
       ensureUserOnSignIn("owner@example.com", "O"),

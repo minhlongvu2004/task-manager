@@ -50,3 +50,19 @@ describe("assertCanSeeTeam", () => {
     await expect(assertCanSeeTeam(member, t2)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe("getSessionUser", () => {
+  it("returns null once the email is removed from the allowlist; the owner still resolves", async () => {
+    const { vi } = await import("vitest");
+    const { eq } = await import("drizzle-orm");
+    let email: string | undefined = "m@example.com";
+    vi.doMock("@/auth", () => ({ auth: async () => (email ? { user: { email } } : null) }));
+    const { getSessionUser } = await import("@/server/access");
+    expect((await getSessionUser())?.id).toBe(member.id);
+    await db.delete(allowedEmails).where(eq(allowedEmails.email, "m@example.com"));
+    expect(await getSessionUser()).toBeNull();
+    email = "owner@example.com";
+    expect((await getSessionUser())?.id).toBe(owner.id);
+    vi.doUnmock("@/auth");
+  });
+});

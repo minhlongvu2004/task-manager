@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import { migrate as migratePg } from "drizzle-orm/postgres-js/migrator";
@@ -25,6 +26,7 @@ function create() {
     return { db, migrate: () => migratePg(db, { migrationsFolder: migrationsFolder() }) };
   }
   const dataDir = process.env.NODE_ENV === "test" ? undefined : ".data/dev";
+  if (dataDir) fs.mkdirSync(dataDir, { recursive: true });
   const db = drizzlePglite(new PGlite(dataDir), { schema });
   return { db, migrate: () => migratePglite(db, { migrationsFolder: migrationsFolder() }) };
 }

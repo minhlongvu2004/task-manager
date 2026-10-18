@@ -6,7 +6,7 @@ const PUBLIC_PATHS = ["/signin", "/not-invited"];
 /** Edge-safe config (no DB imports); shared by src/auth.ts and src/proxy.ts. */
 export const authConfig = {
   providers: [Google],
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
   pages: { signIn: "/signin", error: "/not-invited" },
   callbacks: {
     authorized({ auth, request }) {

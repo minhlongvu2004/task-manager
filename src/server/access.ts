@@ -68,6 +68,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const db = await getDb();
   const [user] = await db.select().from(users).where(eq(users.email, normalizeEmail(email))).limit(1);
   if (!user) return null;
+  // Re-check on every request so removing someone from the allowlist revokes a live session.
+  if (!(await isEmailAllowed(user.email))) return null;
   const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.ownerUserId, user.id)).limit(1);
   return { id: user.id, email: user.email, isWorkspaceOwner: Boolean(ws) };
 }
