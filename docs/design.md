@@ -62,7 +62,7 @@ Mockups were reviewed in the browser and the final choices are recorded here. Sa
 
 ### Projects screen (the home screen)
 
-- Left sidebar: Projects, My tasks, Teams, Settings. Top bar: title, an "All teams" filter, a "Has Pending" filter, and "+ New" (project).
+- Left sidebar (mockup showed Projects, My tasks, Teams, Settings; version 1 keeps only Projects, see the calls below). Top bar: title, an "All teams" filter, a "Has Pending" filter, and "+ New" (project).
 - Each team is a card. The header has a pale tint of the team color, a solid colored icon, the team name in large bold type, a summary line (projects, people) and an amber badge with the number of Pending tasks when there are any. The card has a thick left edge in the team color.
 - Inside the card, projects are compact rows under a thin vertical line, with "+ Add project" at the end.
 - A project row: name with a priority label (red URGENT or orange HIGH; Normal shows nothing), people avatars, counts per status (the Pending count is amber), and a due date that turns red when close.
@@ -104,6 +104,19 @@ Marked above as assumed or the author's choice:
 5. Sign in with Google first, email links later.
 6. The tool stack and Railway.
 7. Which domain to use, and when.
+
+## Calls made after the builder check (author's calls, change any of them)
+
+- **Who can sign in:** an allowlist of Google accounts. Version 1 allows only the owner's account, so a public Railway address cannot be used by strangers. Adding a person means adding their email to the list.
+- **Sidebar in version 1:** only Projects. "My tasks", "Teams" and "Settings" are left out. Teams are created with a "+ New team" action on the Projects screen (name and color). Members are added by email from the allowlist; with one user, the team has one member.
+- **Owner picker:** lists the members of the project's team.
+- **Ordering:** projects sort by priority, then by due date. Tasks in a tab sort by due date (no date last), then by creation time. No manual reordering in version 1.
+- **Project actions:** edit name, priority and due date; archive and unarchive; delete (with its tasks, to the trash). Archived projects are hidden from the Projects screen and from counts, and shown under an "Archived" filter. Deleting a team is only allowed when it has no projects.
+- **Task transitions:** any status can move to any other, except that the owner rules above still apply. Moving back to Unassigned clears the owner. The stuck reason is cleared when a task leaves Pending. A Succeeded task can be reopened by moving it to Doing.
+- **Trash:** a small "Trash" link on the project screen lists deleted tasks with Restore. Items stay 30 days. The Undo after deleting is a toast only.
+- **"Close" due date:** within 3 days, or overdue, shows red.
+- **Backups:** use Railway's database backups if the plan has them, and otherwise a daily export. To be checked at build time.
+- **Google sign-in setup:** the owner creates a Google Cloud OAuth credential. The builder gives step-by-step instructions.
 
 ## Left to the builder
 
