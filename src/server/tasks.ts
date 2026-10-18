@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { tasks, teamMembers } from "@/db/schema";
-import type { TaskStatus } from "@/lib/domain/status";
+import { STATUS_ORDER, type TaskStatus } from "@/lib/domain/status";
 import { countsByStatus, sortTasks } from "@/lib/domain/project-view";
 import { newTaskState, setOwner, setStatus, validateTitle, type RuleResult, type TaskState } from "@/lib/domain/task-rules";
 import type { SessionUser } from "./access";
@@ -27,7 +27,8 @@ async function assertTeamMember(tx: Tx, teamId: string, userId: string) {
   const rows = await tx
     .select({ id: teamMembers.userId })
     .from(teamMembers)
-    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+    .for("share"); // held until the surrounding write commits, so removeMember cannot interleave
   if (rows.length === 0) throw new BlockedError("Owner must be a member of the team");
 }
 
@@ -97,6 +98,7 @@ export async function updateTask(
     // Lock the row so concurrent edits serialize and the rules see the latest state.
     const [cur] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).for("update");
     if (!cur || cur.deletedAt !== null) throw new NotFoundError("Task not found");
+    if (patch.status !== undefined && !STATUS_ORDER.includes(patch.status)) throw new BlockedError("Invalid status");
 
     let state: TaskState = { status: cur.status, ownerId: cur.ownerId, stuckReason: cur.stuckReason };
     if (patch.ownerId !== undefined) {

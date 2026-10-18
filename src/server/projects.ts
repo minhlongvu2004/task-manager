@@ -1,9 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { PRIORITIES, projects } from "@/db/schema";
+import { PRIORITIES, projects, teams } from "@/db/schema";
 import { sortProjects, type Priority } from "@/lib/domain/project-view";
 import { visibleTeamIds, type SessionUser } from "./access";
-import { BlockedError } from "./errors";
+import { BlockedError, NotFoundError } from "./errors";
 import { authorizeProject, authorizeTeam, checkDueDate, checkName } from "./guards";
 
 function checkPriority(p: unknown): Priority {
@@ -34,8 +34,13 @@ export async function createProject(
   const priority = checkPriority(input.priority);
   const dueDate = checkDueDate(input.dueDate ?? null);
   const db = await getDb();
-  const [row] = await db.insert(projects).values({ teamId: input.teamId, name, priority, dueDate }).returning();
-  return row;
+  return db.transaction(async (tx) => {
+    // Share lock on the team row so deleteTeam (exclusive lock) cannot cascade-delete this project.
+    const locked = await tx.select({ id: teams.id }).from(teams).where(eq(teams.id, input.teamId)).for("share");
+    if (locked.length === 0) throw new NotFoundError("Team not found");
+    const [row] = await tx.insert(projects).values({ teamId: input.teamId, name, priority, dueDate }).returning();
+    return row;
+  });
 }
 
 export async function updateProject(

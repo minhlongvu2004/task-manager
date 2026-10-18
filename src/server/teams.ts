@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { allowedEmails, projects, tasks, teamMembers, teams, users, workspaces } from "@/db/schema";
-import { normalizeEmail, visibleTeamIds, type SessionUser } from "./access";
+import { isEmailAllowed, normalizeEmail, visibleTeamIds, type SessionUser } from "./access";
 import { BlockedError } from "./errors";
 import { authorizeTeam, checkName, isUuid } from "./guards";
 
@@ -45,6 +45,10 @@ export async function addMemberByEmail(user: SessionUser, teamId: string, rawEma
   await authorizeTeam(user, teamId);
   const email = normalizeEmail(rawEmail ?? "");
   if (!EMAIL.test(email)) throw new BlockedError("Enter a valid email address");
+  // Only the workspace owner may invite a brand-new email; members can add people already allowed.
+  if (!user.isWorkspaceOwner && !(await isEmailAllowed(email))) {
+    throw new BlockedError("Ask the workspace owner to invite them first");
+  }
   const db = await getDb();
   return db.transaction(async (tx) => {
     await tx.insert(allowedEmails).values({ email }).onConflictDoNothing();
@@ -60,6 +64,13 @@ export async function removeMember(user: SessionUser, teamId: string, userId: st
   if (!isUuid(userId)) return; // cannot be a member
   const db = await getDb();
   await db.transaction(async (tx) => {
+    // Lock the member row so a concurrent createTask/updateTask (which share-locks it) cannot
+    // give this member a doing/pending task after the count below.
+    await tx
+      .select({ id: teamMembers.userId })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+      .for("update");
     const teamProjects = tx.select({ id: projects.id }).from(projects).where(eq(projects.teamId, teamId));
     const [{ n }] = await tx
       .select({ n: count() })
@@ -87,6 +98,8 @@ export async function deleteTeam(user: SessionUser, teamId: string): Promise<voi
   await authorizeTeam(user, teamId);
   const db = await getDb();
   await db.transaction(async (tx) => {
+    // Exclusive team lock: createProject share-locks the same row, so no project can slip in.
+    await tx.select({ id: teams.id }).from(teams).where(eq(teams.id, teamId)).for("update");
     const [{ n }] = await tx.select({ n: count() }).from(projects).where(eq(projects.teamId, teamId));
     if (n > 0) throw new BlockedError("Delete or move this team's projects first");
     await tx.delete(teams).where(eq(teams.id, teamId));

@@ -102,6 +102,21 @@ describe("create / update", () => {
     await expect(updateTask(owner, t2.id, { status: "doing" })).rejects.toBeInstanceOf(BlockedError);
     expect((await updateTask(owner, u.id, { status: "unassigned" })).ownerId).toBeNull();
   });
+  it("owner + status unassigned in one patch clears the owner", async () => {
+    const t = await mk(owner, pA, "x", alice.id);
+    const u = await updateTask(owner, t.id, { ownerId: alice.id, status: "unassigned" });
+    expect(u.status).toBe("unassigned");
+    expect(u.ownerId).toBeNull();
+  });
+  it("changing the owner of a pending task keeps status and reason; invalid status rejected", async () => {
+    const t = await mk(owner, pA, "x", alice.id);
+    await updateTask(alice, t.id, { status: "pending", stuckReason: "no API key" });
+    const u = await updateTask(owner, t.id, { ownerId: owner.id });
+    expect(u.ownerId).toBe(owner.id);
+    expect(u.status).toBe("pending");
+    expect(u.stuckReason).toBe("no API key");
+    await expect(updateTask(owner, t.id, { status: "bogus" as never })).rejects.toBeInstanceOf(BlockedError);
+  });
   it("validates titles and dates; HTML stored as given", async () => {
     await expect(mk(owner, pA, "   ")).rejects.toBeInstanceOf(BlockedError);
     await expect(mk(owner, pA, "x".repeat(201))).rejects.toBeInstanceOf(BlockedError);

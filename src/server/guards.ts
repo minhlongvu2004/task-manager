@@ -44,8 +44,9 @@ export async function authorizeProject(user: SessionUser, projectId: string) {
   if (!row) throw new NotFoundError("Project not found");
   try {
     await assertCanSeeTeam(user, row.teamId);
-  } catch {
-    throw new NotFoundError("Project not found");
+  } catch (e) {
+    if (e instanceof NotFoundError) throw new NotFoundError("Project not found");
+    throw e;
   }
   return row;
 }
@@ -63,8 +64,9 @@ export async function authorizeTask(user: SessionUser, taskId: string) {
   if (!row) throw new NotFoundError("Task not found");
   try {
     await assertCanSeeTeam(user, row.teamId);
-  } catch {
-    throw new NotFoundError("Task not found");
+  } catch (e) {
+    if (e instanceof NotFoundError) throw new NotFoundError("Task not found");
+    throw e;
   }
   return { task: row.task, teamId: row.teamId };
 }

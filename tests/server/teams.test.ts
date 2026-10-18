@@ -6,7 +6,7 @@ import { ensureUserOnSignIn, type SessionUser } from "@/server/access";
 import { BlockedError, NotFoundError } from "@/server/errors";
 import { addMemberByEmail, createTeam, deleteTeam, listTeamMembers, listTeams, removeMember } from "@/server/teams";
 import { createProject, setProjectArchived } from "@/server/projects";
-import { createTask, updateTask } from "@/server/tasks";
+import { createTask, deleteTask, updateTask } from "@/server/tasks";
 import { setup } from "./fixtures";
 
 let owner: SessionUser, alice: SessionUser, bob: SessionUser;
@@ -60,6 +60,21 @@ describe("teams", () => {
     expect(m.id).toBe(bob.id);
   });
 
+  it("only the workspace owner can invite a brand-new email", async () => {
+    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    await addMemberByEmail(owner, t.id, "alice@example.com");
+    const m = await addMemberByEmail(owner, t.id, "fresh@example.com");
+    expect(m.email).toBe("fresh@example.com");
+    await expect(addMemberByEmail(alice, t.id, "stranger@example.com")).rejects.toThrow(
+      "Ask the workspace owner to invite them first",
+    );
+    expect(await db.select().from(allowedEmails).where(eq(allowedEmails.email, "stranger@example.com"))).toHaveLength(0);
+    expect(await db.select().from(users).where(eq(users.email, "stranger@example.com"))).toHaveLength(0);
+    // already allowed (bob) is fine, and so is a never-signed-in allowed email
+    expect((await addMemberByEmail(alice, t.id, "bob@example.com")).id).toBe(bob.id);
+    expect((await addMemberByEmail(alice, t.id, "FRESH@example.com")).id).toBe(m.id);
+  });
+
   describe("removeMember", () => {
     let teamId: string, projectId: string;
     beforeEach(async () => {
@@ -97,6 +112,34 @@ describe("teams", () => {
       const [row] = await db.select().from(tasks).where(eq(tasks.id, t1.id));
       expect(row.ownerId).toBe(alice.id);
       expect(row.status).toBe("succeeded");
+    });
+
+    it("is scoped to one team", async () => {
+      const teamB = (await createTeam(owner, { name: "B", color: "#fff" })).id;
+      await addMemberByEmail(owner, teamB, "alice@example.com");
+      const pB = (await createProject(owner, { teamId: teamB, name: "PB", priority: "normal", dueDate: null })).id;
+      const doingB = await createTask(owner, pB, { title: "d", ownerId: alice.id, dueDate: null });
+      await updateTask(owner, doingB.id, { status: "doing" });
+      const assignedB = await createTask(owner, pB, { title: "a", ownerId: alice.id, dueDate: null });
+      const assignedA = await createTask(owner, projectId, { title: "a", ownerId: alice.id, dueDate: null });
+      await removeMember(owner, teamId, alice.id); // B's doing task does not block
+      const get = async (id: string) => (await db.select().from(tasks).where(eq(tasks.id, id)))[0];
+      expect((await get(doingB.id)).status).toBe("doing");
+      expect((await get(doingB.id)).ownerId).toBe(alice.id);
+      expect((await get(assignedB.id)).status).toBe("assigned");
+      expect((await get(assignedB.id)).ownerId).toBe(alice.id);
+      expect((await get(assignedA.id)).status).toBe("unassigned");
+      expect((await listTeamMembers(owner, teamB)).map((m) => m.id)).toContain(alice.id);
+    });
+
+    it("resets soft-deleted assigned tasks too", async () => {
+      const task = await createTask(owner, projectId, { title: "a", ownerId: alice.id, dueDate: null });
+      await deleteTask(owner, task.id);
+      await removeMember(owner, teamId, alice.id);
+      const [row] = await db.select().from(tasks).where(eq(tasks.id, task.id));
+      expect(row.status).toBe("unassigned");
+      expect(row.ownerId).toBeNull();
+      expect(row.deletedAt).not.toBeNull();
     });
 
     it("non-member cannot remove", async () => {
