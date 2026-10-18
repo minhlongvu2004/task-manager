@@ -8,7 +8,7 @@ export type TeamCardTeam = { id: string; name: string; color: string | null };
 const DEFAULT_COLOR = "#64748b";
 
 // Only plain hex colors reach the style attribute.
-function safeColor(color: string | null): string {
+export function safeColor(color: string | null): string {
   return color && /^#[0-9a-f]{3,8}$/i.test(color) ? color : DEFAULT_COLOR;
 }
 
