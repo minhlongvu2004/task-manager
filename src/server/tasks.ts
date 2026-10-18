@@ -114,6 +114,14 @@ export async function updateTask(
       state = { ...state, stuckReason: reason };
     }
 
+    // A task from Assigned onward (except Succeeded) needs a current member as owner, even when the
+    // owner is unchanged (e.g. reopening a Succeeded task whose owner has left). An unchanged owner on a
+    // Succeeded/Unassigned result skips the lock, which avoids a deadlock with removeMember.
+    const ownerUnchanged = state.ownerId === cur.ownerId;
+    if (state.ownerId !== null && ownerUnchanged && state.status !== "succeeded" && state.status !== "unassigned") {
+      await assertTeamMember(tx, teamId, state.ownerId);
+    }
+
     const [row] = await tx
       .update(tasks)
       .set({

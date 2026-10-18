@@ -179,6 +179,41 @@ describe("lists, delete, restore, purge", () => {
     const row = await updateTask(owner, done.id, { ownerId: alice.id, title: "renamed" });
     expect(row).toMatchObject({ title: "renamed", ownerId: alice.id });
   });
+  describe("succeeded task whose owner left the team", () => {
+    let id: string;
+    beforeEach(async () => {
+      const t = await mk(owner, pA, "s", alice.id);
+      await updateTask(owner, t.id, { status: "doing" });
+      await updateTask(owner, t.id, { status: "succeeded" });
+      await removeMember(owner, tA, alice.id);
+      id = t.id;
+    });
+    const unchanged = async () =>
+      expect((await db.select().from(tasks).where(eq(tasks.id, id)))[0]).toMatchObject({
+        status: "succeeded",
+        ownerId: alice.id,
+        stuckReason: null,
+      });
+    it("can be renamed", async () => {
+      expect(await updateTask(owner, id, { title: "renamed" })).toMatchObject({ title: "renamed", ownerId: alice.id });
+    });
+    it("cannot be reopened to doing, assigned or pending with the same owner", async () => {
+      await expect(updateTask(owner, id, { status: "doing" })).rejects.toBeInstanceOf(BlockedError);
+      await expect(updateTask(owner, id, { status: "doing", ownerId: alice.id })).rejects.toBeInstanceOf(BlockedError);
+      await expect(updateTask(owner, id, { status: "assigned" })).rejects.toBeInstanceOf(BlockedError);
+      await expect(updateTask(owner, id, { status: "pending", stuckReason: "why" })).rejects.toBeInstanceOf(BlockedError);
+      await unchanged();
+    });
+    it("can be reopened together with a new member owner", async () => {
+      expect(await updateTask(owner, id, { status: "doing", ownerId: owner.id })).toMatchObject({
+        status: "doing",
+        ownerId: owner.id,
+      });
+    });
+    it("can be moved to unassigned, clearing the owner", async () => {
+      expect(await updateTask(owner, id, { status: "unassigned" })).toMatchObject({ status: "unassigned", ownerId: null });
+    });
+  });
   it("purgeTrash removes >30 days, keeps 29 days", async () => {
     const now = new Date("2026-10-18T12:00:00Z");
     const old = await mk(owner, pA, "old");
