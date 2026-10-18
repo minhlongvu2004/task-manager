@@ -97,3 +97,14 @@ export const tasks = pgTable(
     index("tasks_owner_id_idx").on(t.ownerId),
   ],
 );
+
+// Auth.js email sign-in links. Only a hash of the token is stored; rows are deleted when used.
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+);

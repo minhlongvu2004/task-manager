@@ -1,0 +1,42 @@
+/** Sends sign-in emails through the Resend HTTP API. */
+export const LOGIN_LINK_MINUTES = 15;
+
+export type EmailSender = (to: string, url: string) => Promise<void>;
+
+let override: EmailSender | null = null;
+/** Tests install a fake sender here; pass null to restore the real one. */
+export function setEmailSender(sender: EmailSender | null): void {
+  override = sender;
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+export function buildLoginEmail(url: string) {
+  const { host } = new URL(url);
+  const subject = `Sign in to ${host}`;
+  const text = `Sign in to Task Manager:\n\n${url}\n\nThis link expires in ${LOGIN_LINK_MINUTES} minutes and works once. If you did not ask for it, ignore this email.\n`;
+  const u = escapeHtml(url);
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#18181b"><h1 style="font-size:20px">Task Manager</h1><p>Use the link below to sign in.</p><p><a href="${u}" style="display:inline-block;background:#18181b;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Sign in</a></p><p style="font-size:13px;color:#52525b">Or paste this into your browser:<br>${u}</p><p style="font-size:13px;color:#52525b">This link expires in ${LOGIN_LINK_MINUTES} minutes and works once. If you did not ask for it, ignore this email.</p></div>`;
+  return { subject, text, html };
+}
+
+async function sendWithResend(to: string, url: string): Promise<void> {
+  const key = process.env.AUTH_RESEND_KEY;
+  if (!key) throw new Error("AUTH_RESEND_KEY is not set");
+  const { subject, text, html } = buildLoginEmail(url);
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: process.env.EMAIL_FROM || "login@minhlongvu.com", to, subject, text, html }),
+  });
+  // Never include the response body or the URL in the error: neither belongs in logs.
+  if (!res.ok) throw new Error(`Resend responded with status ${res.status}`);
+}
+
+export async function sendLoginEmail(to: string, url: string): Promise<void> {
+  if (override) return override(to, url);
+  // Tests must install a fake with setEmailSender; the real sender is never reachable from them.
+  if (process.env.NODE_ENV === "test") throw new Error("No email sender set in test");
+  return sendWithResend(to, url);
+}

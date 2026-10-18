@@ -27,4 +27,4 @@ Scripts: `npm run db:generate` and `npm run db:migrate` (drizzle-kit).
 
 Hosted on Railway with PostgreSQL. Step-by-step instructions, the post-deploy checklist, the daily purge cron and backups are in [docs/deploy.md](docs/deploy.md).
 
-Production env vars: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `OWNER_EMAIL`, `CRON_SECRET`, `AUTH_TRUST_HOST=true`.
+Production env vars: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `OWNER_EMAIL`, `CRON_SECRET`, `AUTH_TRUST_HOST=true`. Optional, for email sign-in links (see docs/resend-setup.md): `AUTH_RESEND_KEY`, `EMAIL_FROM`.

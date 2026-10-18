@@ -5,7 +5,7 @@ import { db, ensureMigrated } from "@/db/client";
 export async function resetDb(): Promise<void> {
   await ensureMigrated();
   await db.execute(sql`
-    TRUNCATE TABLE tasks, projects, team_members, teams, allowed_emails, workspaces, users
+    TRUNCATE TABLE verification_tokens, tasks, projects, team_members, teams, allowed_emails, workspaces, users
     RESTART IDENTITY CASCADE
   `);
 }
