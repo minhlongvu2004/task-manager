@@ -114,11 +114,16 @@ export async function updateTask(
       state = { ...state, stuckReason: reason };
     }
 
-    // A task from Assigned onward (except Succeeded) needs a current member as owner, even when the
-    // owner is unchanged (e.g. reopening a Succeeded task whose owner has left). An unchanged owner on a
-    // Succeeded/Unassigned result skips the lock, which avoids a deadlock with removeMember.
-    const ownerUnchanged = state.ownerId === cur.ownerId;
-    if (state.ownerId !== null && ownerUnchanged && state.status !== "succeeded" && state.status !== "unassigned") {
+    // Only reopening a Succeeded task with its owner unchanged can reach a departed owner (removeMember
+    // resets Assigned tasks and blocks while Doing/Pending ones exist), so only that path takes the member
+    // FOR SHARE lock. A changed owner is checked above; every other unchanged-owner update takes no member
+    // lock, keeping the lock order (task row, then member row) from deadlocking with removeMember.
+    if (
+      cur.status === "succeeded" &&
+      state.ownerId !== null &&
+      state.ownerId === cur.ownerId &&
+      (state.status === "assigned" || state.status === "doing" || state.status === "pending")
+    ) {
       await assertTeamMember(tx, teamId, state.ownerId);
     }
 

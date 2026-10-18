@@ -179,6 +179,15 @@ describe("lists, delete, restore, purge", () => {
     const row = await updateTask(owner, done.id, { ownerId: alice.id, title: "renamed" });
     expect(row).toMatchObject({ title: "renamed", ownerId: alice.id });
   });
+  it("renaming an assigned task with an unchanged owner works", async () => {
+    // Limitation: the member lookup is internal, so this only shows the happy path for a current member.
+    const t = await mk(owner, pA, "a", alice.id);
+    expect(await updateTask(owner, t.id, { title: "b", ownerId: alice.id })).toMatchObject({
+      title: "b",
+      status: "assigned",
+      ownerId: alice.id,
+    });
+  });
   describe("succeeded task whose owner left the team", () => {
     let id: string;
     beforeEach(async () => {
