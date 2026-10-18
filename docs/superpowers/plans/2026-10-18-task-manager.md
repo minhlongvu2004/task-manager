@@ -19,7 +19,7 @@
 - A task from Doing onward always has an owner. Pending requires a non-blank stuck reason.
 - Deleted tasks are soft-deleted and kept 30 days.
 - Due dates are calendar dates (`YYYY-MM-DD`), never timestamps.
-- Only the owner's Google account may sign in at first (allowlist).
+- Only the owner's Google account may sign in at first (allowlist). Email sign-in links through Resend come last (Task 10).
 - Out of scope: roles, permissions beyond team membership, "On hold", templates, subtasks, boards, My tasks, Settings, notifications, dark mode, manual reordering.
 
 ## Review Focus
@@ -232,3 +232,20 @@ tests/...                       mirrors src
 - [ ] **Step 3:** Check whether the Railway plan includes database backups. If it does not, add a documented daily export.
 - [ ] **Step 4:** Deploy. Verify: the site loads, signing in with the owner's account works, an unlisted Google account lands on "not invited", and creating a team, project and task persists after a redeploy.
 - [ ] **Step 5: Commit** `chore: Railway deployment`. Later (not in this plan): attach the owner's new domain and add the Resend email sign-in.
+
+### Task 10: Email sign-in links with Resend (after the app is live)
+
+**Files:**
+- Create: `src/server/email.ts`, `docs/resend-setup.md`
+- Modify: `src/auth.ts`, `src/db/schema.ts` (adapter tables, including a `verificationTokens` table), `src/app/signin/page.tsx`
+- Test: `tests/server/email-signin.test.ts`
+
+**Interfaces:**
+- Consumes: `isEmailAllowed`, `ensureUserOnSignIn` (Task 4).
+- Produces: `sendLoginEmail(to: string, url: string): Promise<void>` sending from `login@minhlongvu.com` through Resend; the sign-in page offers "Email me a link" beside the Google button. Auth.js email sign-in needs a database adapter, so add `@auth/drizzle-adapter` and its tables.
+
+- [ ] **Step 1: Write failing tests:** an allowed email triggers exactly one `sendLoginEmail` call; a non-allowed email triggers none and the response is identical to the allowed case, so strangers cannot tell who is invited; a link used twice, or after it expires, signs nobody in.
+- [ ] **Step 2:** Run `npx vitest run tests/server/email-signin.test.ts`; expected FAIL.
+- [ ] **Step 3:** Implement with the Auth.js Resend provider, a fake email sender in tests, and the adapter. Write `docs/resend-setup.md` for the owner: make a Resend account, add `minhlongvu.com`, add only the new DNS lines Resend shows (never edit or delete the existing records that serve the portfolio), wait for "verified", then set `AUTH_RESEND_KEY` and `EMAIL_FROM=login@minhlongvu.com` in Railway.
+- [ ] **Step 4:** Run tests; expected PASS. On the live site, request a link for the owner's email and for an unlisted one; verify only the first arrives and signs in.
+- [ ] **Step 5: Commit** `feat: email sign-in links with Resend`.
