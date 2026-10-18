@@ -34,7 +34,7 @@ It is a personal project, used by the owner first. Other people may use it later
 Structure: Workspace, then Team, then Project, then Task. A user belongs to teams and can be the owner of tasks.
 
 - **Workspace.** The top container. Today there is one, the owner's. It exists so other people can be added later. (Builder's call to confirm: the owner proposed no such layer; it was suggested for future growth.)
-- **Team.** A named, colored group of people with members. (Assumed meaning, not confirmed: a fixed group of people, not just a label on a project.)
+- **Team.** A named, colored group, like a group in an operating system. People are added to or removed from a team at any time. Being in a team means you can see all of its projects and their tasks; people outside the team cannot see them. Team members have no roles and no extra permissions.
 - **Project.** Belongs to one team. Has a name, a priority (Urgent, High or Normal), a due date, and a state (Active or Archived). It has no status of its own. Its row shows task counts per status.
 - **Task.** Belongs to one project. Has a title, a status, an optional owner, an optional due date, and, only when Pending, a stuck reason.
 - **Trash.** Deleted tasks go to a trash and can be restored for a while. There is no Cancelled or Failed status.
@@ -97,7 +97,7 @@ Recorded at https://claude.ai/artifact/8ojG2yUjbdsG3x7t92Q17R. Summary: a web ap
 ## Decisions to confirm
 
 Marked above as assumed or the author's choice:
-1. A team is a fixed group of members.
+1. (Settled by the owner) A team is a group: membership gives access to all its projects. No team roles.
 2. Workspace layer exists from day one.
 3. Projects sort by priority within a team.
 4. The project screen opens on the Doing tab.
@@ -110,6 +110,7 @@ Marked above as assumed or the author's choice:
 - **Who can sign in:** an allowlist of Google accounts. Version 1 allows only the owner's account, so a public Railway address cannot be used by strangers. Adding a person means adding their email to the list.
 - **Sidebar in version 1:** only Projects. "My tasks", "Teams" and "Settings" are left out. Teams are created with a "+ New team" action on the Projects screen (name and color). Members are added by email from the allowlist; with one user, the team has one member.
 - **Owner picker:** lists the members of the project's team.
+- **Who sees what:** the workspace owner sees every team. Everyone else sees only the teams they belong to. Anyone in a team can create and edit projects and tasks in it.
 - **Ordering:** projects sort by priority, then by due date. Tasks in a tab sort by due date (no date last), then by creation time. No manual reordering in version 1.
 - **Project actions:** edit name, priority and due date; archive and unarchive; delete (with its tasks, to the trash). Archived projects are hidden from the Projects screen and from counts, and shown under an "Archived" filter. Deleting a team is only allowed when it has no projects.
 - **Task transitions:** any status can move to any other, except that the owner rules above still apply. Moving back to Unassigned clears the owner. The stuck reason is cleared when a task leaves Pending. A Succeeded task can be reopened by moving it to Doing.
