@@ -6,7 +6,7 @@
 
 **Architecture:** One Next.js app (App Router, server actions) holds the screens and the rules. Pure rule functions (status, owner, sorting, due state) live apart from the database so they are tested alone. A data layer in `src/server/` is the only code that touches PostgreSQL and is the only place access control is enforced.
 
-**Tech Stack:** Next.js (App Router) + TypeScript, Tailwind CSS, PostgreSQL with Drizzle ORM, Auth.js (Google provider), Vitest + React Testing Library, Docker Compose for local Postgres, Railway for hosting. (Stack choices are the author's; the design leaves libraries to the builder.)
+**Tech Stack:** Next.js (App Router) + TypeScript, Tailwind CSS, PostgreSQL with Drizzle ORM, Auth.js (Google provider), Vitest + React Testing Library, PGlite (in-process Postgres) for local development and tests, Railway PostgreSQL in production. (Stack choices are the author's; the design leaves libraries to the builder.)
 
 **Spec:** `docs/design.md` (same repo). Read it first. Mockups are in `.superpowers/brainstorm/` on the owner's machine only; `interactive-task-panel.html` there is a throwaway prototype of the task panel, not code to reuse.
 
@@ -28,7 +28,7 @@ Failure modes the spec implies but a feature task would not otherwise test:
 
 1. A signed-in non-member opens a project or task by its id in the URL: they get "not found", never the data (Task 5, Task 7).
 2. A Google account not on the allowlist signs in: friendly "not invited" page and no user row is created (Task 4).
-3. Removing a team member who still owns tasks in Doing, Pending or Succeeded: blocked with "Reassign N tasks first" (plan decision, because the spec requires owners from Doing onward) (Task 5).
+3. Removing a team member: their Assigned tasks return to Unassigned, their Doing or Pending tasks block removal with "Reassign N tasks first", their Succeeded tasks keep them as owner (plan decision, because the spec requires owners from Doing onward) (Task 5).
 4. Whitespace-only, empty or very long (over 200 characters) titles; HTML in titles is shown as text, never run (Task 2, Task 7).
 5. Due dates near midnight or in another timezone shift by a day: dates are stored and compared as plain `YYYY-MM-DD` strings (Task 2).
 
@@ -56,18 +56,18 @@ tests/...                       mirrors src
 ### Task 1: Scaffold and tooling
 
 **Files:**
-- Create: Next.js app at repo root, `docker-compose.yml`, `vitest.config.ts`, `.env.example`, `drizzle.config.ts`
+- Create: Next.js app at repo root, `vitest.config.ts`, `.env.example`, `drizzle.config.ts`
 - Modify: `README.md` (setup steps), `.gitignore` (already ignores `.env*`, `.next/`)
 - Test: `tests/smoke.test.ts`
 
 **Interfaces:**
-- Produces: `npm test` runs Vitest; `npm run dev` serves on port 3000; `docker compose up -d db` starts Postgres on port 5433 with databases `taskmanager` and `taskmanager_test`; env vars `DATABASE_URL`, `TEST_DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `OWNER_EMAIL` documented in `.env.example`.
+- Produces: `npm test` runs Vitest; `npm run dev` serves on port 3000; no Docker is needed (the owner's machine has none; Node v24 and npm 11 are installed); env vars `DATABASE_URL` (only set in production; when unset the app uses a local PGlite database in `.data/`), `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `OWNER_EMAIL` documented in `.env.example`.
 
 - [ ] **Step 1:** Run `create-next-app` (TypeScript, Tailwind, App Router, `src/` dir, no Turbopack requirement) in a temporary folder and move its files into the repo root, keeping the existing `docs/`, `README.md` and `.gitignore` (merge, do not overwrite).
 - [ ] **Step 2:** Add Vitest, React Testing Library, jsdom, Drizzle ORM, drizzle-kit, `postgres`, `next-auth`. Add scripts `test`, `db:generate`, `db:migrate`.
-- [ ] **Step 3: Write the failing test** `tests/smoke.test.ts`: `it("runs", () => expect(1 + 1).toBe(2))`. Run `npm test`; expected: PASS once Vitest is configured (FAIL first with "vitest not found" if configured before install).
-- [ ] **Step 4:** Add `docker-compose.yml` with Postgres 16 and an init script creating both databases. Run `docker compose up -d db`; verify with `docker compose ps` showing `db` healthy. If Docker is unavailable on the owner's machine, document using two Railway dev databases instead.
-- [ ] **Step 5: Commit** `chore: scaffold Next.js app with tests and local database`.
+- [ ] **Step 3: Write the test** `tests/smoke.test.ts`: `it("runs", () => expect(1 + 1).toBe(2))`. Run `npm test`; expected: PASS.
+- [ ] **Step 4:** Add `@electric-sql/pglite` and confirm Drizzle's PGlite driver works: a throwaway test that creates a PGlite instance, runs `select 1` and returns 1. If this does not work, stop and report; do not fall back to Docker or to paid Railway databases without asking the owner.
+- [ ] **Step 5: Commit** `chore: scaffold Next.js app with tests and in-process database`.
 
 ### Task 2: Domain rules (pure, no database)
 
@@ -87,6 +87,7 @@ tests/...                       mirrors src
   - `type Priority = "urgent" | "high" | "normal"`
   - `sortProjects<T extends { priority: Priority; dueDate: string | null; name: string }>(items: T[]): T[]` (priority, then due date ascending with no date last, then name)
   - `sortTasks<T extends { dueDate: string | null; createdAt: string }>(items: T[]): T[]` (due date ascending with no date last, then created time)
+  - `resolveTab(query: string | undefined): TaskStatus` (returns `query` when it is a valid status, otherwise `"doing"`)
   - `countsByStatus(tasks: { status: TaskStatus }[]): Record<TaskStatus, number>`
   - `dueState(dueDate: string | null, today: string): "none" | "overdue" | "soon" | "later"` (`soon` is 0 to 3 days away)
 
@@ -96,7 +97,7 @@ tests/...                       mirrors src
   - `setStatus(...,"pending")` with no or blank `stuckReason` gives `ok:false`; with `" no API key "` gives `stuckReason:"no API key"`.
   - `setStatus` from pending to `doing` clears `stuckReason`; to `unassigned` clears `ownerId`; to `doing` with `ownerId:null` gives `ok:false`; `succeeded` to `doing` is `ok:true`.
   - `validateTitle("  ")` and a 201-character string give `ok:false`; `"  Fix footer "` gives `"Fix footer"`.
-  In `project-view.test.ts`: priority order urgent, high, normal then due date then name; tasks with no date sort last; `countsByStatus([])` returns zeros for all five keys; `dueState("2026-10-18","2026-10-18")` is `"soon"`, `("2026-10-21", same)` is `"soon"`, `("2026-10-22", same)` is `"later"`, `("2026-10-17", same)` is `"overdue"`, `(null, same)` is `"none"`.
+  In `project-view.test.ts`: priority order urgent, high, normal then due date then name; tasks with no date sort last; `resolveTab(undefined)` and `resolveTab("nonsense")` return `"doing"` and `resolveTab("pending")` returns `"pending"`; `countsByStatus([])` returns zeros for all five keys; `dueState("2026-10-18","2026-10-18")` is `"soon"`, `("2026-10-21", same)` is `"soon"`, `("2026-10-22", same)` is `"later"`, `("2026-10-17", same)` is `"overdue"`, `(null, same)` is `"none"`.
 - [ ] **Step 2:** Run `npx vitest run tests/domain`; expected FAIL (modules missing).
 - [ ] **Step 3:** Implement the functions above as pure code. `dueState` compares `YYYY-MM-DD` strings by converting to UTC day numbers, never `Date` local-time parsing.
 - [ ] **Step 4:** Run `npx vitest run tests/domain`; expected PASS.
@@ -118,11 +119,11 @@ tests/...                       mirrors src
   - `teamMembers(teamId, userId)` primary key on both
   - `projects(id, teamId, name, priority, dueDate text nullable, state)` where `state` is `active | archived`
   - `tasks(id, projectId, title, status, ownerId nullable, dueDate text nullable, stuckReason nullable, createdAt, deletedAt nullable)`
-  - `db` (Drizzle client from `DATABASE_URL`, or `TEST_DATABASE_URL` when `NODE_ENV=test`); test helper `resetDb(): Promise<void>` in `tests/db/helpers.ts` that truncates all tables.
+  - `db` (Drizzle client: postgres-js when `DATABASE_URL` is set; otherwise PGlite on `.data/dev`, or in memory when `NODE_ENV=test`); test helper `resetDb(): Promise<void>` in `tests/db/helpers.ts` that truncates all tables.
 
 - [ ] **Step 1: Write failing test** `schema.test.ts`: after `resetDb()`, insert a workspace, team, project and task, then read the task back; assert `status === "unassigned"`, `deletedAt === null` and `dueDate` is the string passed in (`"2026-11-12"`).
 - [ ] **Step 2:** Run `npx vitest run tests/db`; expected FAIL (no tables).
-- [ ] **Step 3:** Write the schema and generate and apply migrations to both databases. Add database checks so `status`, `priority` and `state` only accept the allowed values.
+- [ ] **Step 3:** Write the schema and generate migrations and apply them with the same code path for PGlite and Postgres. Add database checks so `status`, `priority` and `state` only accept the allowed values.
 - [ ] **Step 4:** Run the test; expected PASS.
 - [ ] **Step 5: Commit** `feat: database schema and migrations`.
 
@@ -137,7 +138,7 @@ tests/...                       mirrors src
 - Produces:
   - `type SessionUser = { id: string; email: string; isWorkspaceOwner: boolean }`
   - `isEmailAllowed(email: string): Promise<boolean>` (true when email equals `OWNER_EMAIL` or is in `allowedEmails`, case-insensitive)
-  - `ensureUserOnSignIn(email: string, name: string | null): Promise<SessionUser | null>` (returns null and creates nothing when not allowed; on the owner's first sign-in creates the user and a workspace)
+  - `ensureUserOnSignIn(email: string, name: string | null): Promise<SessionUser | null>` (returns null and creates nothing when not allowed; matches an existing user row by email, which may have been created by `addMemberByEmail`, and fills in the name; on the owner's first sign-in creates the user and a workspace)
   - `getSessionUser(): Promise<SessionUser | null>`
   - `visibleTeamIds(user: SessionUser): Promise<string[]>` (all teams in the workspace for the owner; otherwise teams where the user is a member)
   - `assertCanSeeTeam(user: SessionUser, teamId: string): Promise<void>` (throws `NotFoundError` for a non-member)
@@ -145,7 +146,7 @@ tests/...                       mirrors src
 - [ ] **Step 1: Write failing tests:** allowlist is case-insensitive; a non-allowed email returns null and the `users` table stays empty (Review Focus 2); the owner's first sign-in creates one user and one workspace, and a second sign-in creates no duplicates; `visibleTeamIds` returns every team for the owner and only joined teams for a member; `assertCanSeeTeam` throws for a non-member.
 - [ ] **Step 2:** Run `npx vitest run tests/server`; expected FAIL.
 - [ ] **Step 3:** Implement the functions and wire Auth.js with the Google provider; use its `signIn` callback to call `ensureUserOnSignIn` and redirect to `/not-invited` when it returns null. Pages other than `/signin` and `/not-invited` require a session.
-- [ ] **Step 4:** Run tests; expected PASS. Then run the app and sign in with the owner's Google account once the OAuth credentials exist (instructions in Task 9; use a local callback URL `http://localhost:3000/api/auth/callback/google` for development).
+- [ ] **Step 4:** Run tests; expected PASS. Then the owner does a one-time Google setup, with the builder giving step-by-step instructions: in Google Cloud Console create a project, configure the OAuth consent screen, and create a Web OAuth client with authorized redirect `http://localhost:3000/api/auth/callback/google`; put the client id and secret in `.env`. Run the app and sign in with the owner's account. The Railway redirect is added in Task 9.
 - [ ] **Step 5: Commit** `feat: Google sign-in with allowlist and access checks`.
 
 ### Task 5: Data layer with access control
@@ -157,11 +158,11 @@ tests/...                       mirrors src
 **Interfaces:**
 - Consumes: `SessionUser`, `assertCanSeeTeam`, `visibleTeamIds` (Task 4); rules and validators (Task 2).
 - Produces (all take the acting `user` first and throw `NotFoundError` for anything outside their teams):
-  - Teams: `listTeams(user)`, `createTeam(user, {name, color})`, `addMemberByEmail(user, teamId, email)` (also adds the email to `allowedEmails`), `removeMember(user, teamId, userId)` (throws `BlockedError("Reassign N tasks first")` when the member owns tasks in doing, pending or succeeded), `deleteTeam(user, teamId)` (throws `BlockedError` when the team has projects)
-  - Projects: `listProjects(user, {includeArchived?: boolean})`, `getProject(user, projectId)`, `createProject(user, {teamId, name, priority, dueDate})`, `updateProject(user, projectId, patch)`, `setProjectArchived(user, projectId, archived: boolean)`, `deleteProject(user, projectId)` (moves its tasks to the trash)
+  - Teams: `listTeams(user)`, `createTeam(user, {name, color})` (also adds the creator to `teamMembers`), `addMemberByEmail(user, teamId, email)` (adds the email to `allowedEmails` and creates a `users` row for that email if none exists), `removeMember(user, teamId, userId)` (the member's `assigned` tasks go back to `unassigned`; throws `BlockedError("Reassign N tasks first")` when the member owns `doing` or `pending` tasks; `succeeded` tasks keep their owner), `deleteTeam(user, teamId)` (throws `BlockedError` when the team has projects)
+  - Projects: `listProjects(user, {includeArchived?: boolean})`, `getProject(user, projectId)`, `createProject(user, {teamId, name, priority, dueDate})`, `updateProject(user, projectId, patch)`, `setProjectArchived(user, projectId, archived: boolean)` (there is no project delete in version 1; archiving covers it)
   - Tasks: `listTasks(user, projectId, status)` (sorted with `sortTasks`, excludes deleted), `taskCounts(user, projectId)`, `createTask(user, projectId, {title, ownerId, dueDate})`, `updateTask(user, taskId, {title?, ownerId?, status?, dueDate?, stuckReason?})` (all changes go through `setOwner` and `setStatus`; owner must be a member of the project's team), `deleteTask(user, taskId)`, `restoreTask(user, taskId)`, `listTrash(user, projectId)`, `purgeTrash(now: Date): Promise<number>` (permanently removes tasks deleted over 30 days before `now`)
 
-- [ ] **Step 1: Write failing tests** for: a non-member gets `NotFoundError` on `getProject`, `listTasks`, `updateTask` for ids that exist (Review Focus 1); the workspace owner can read every team; `createTask` with no owner starts `unassigned`, with an owner starts `assigned`; `updateTask` to pending without a reason is rejected, with `"no API key"` it saves and leaving pending clears it; a non-member cannot be set as owner; `removeMember` is blocked while the member owns a `doing` task and works after reassigning (Review Focus 3); `deleteTeam` is blocked with projects; archived projects are hidden unless `includeArchived`; deleting then restoring a task returns it unchanged; `purgeTrash` removes a task deleted 31 days earlier and keeps one deleted 29 days earlier; titles are validated (Review Focus 4).
+- [ ] **Step 1: Write failing tests** for: a non-member gets `NotFoundError` on `getProject`, `listTasks`, `updateTask` for ids that exist (Review Focus 1); the workspace owner can read every team; `createTask` with no owner starts `unassigned`, with an owner starts `assigned`; `updateTask` to pending without a reason is rejected, with `"no API key"` it saves and leaving pending clears it; a non-member cannot be set as owner; `createTeam` makes the creator a member, so they appear as a possible task owner; `addMemberByEmail` works for an email that has never signed in, and `ensureUserOnSignIn` later reuses that row; `removeMember` returns the member's assigned tasks to unassigned, is blocked while they own a `doing` or `pending` task and works after reassigning, and leaves their succeeded tasks owned by them (Review Focus 3); `deleteTeam` is blocked with projects; archived projects are hidden unless `includeArchived`; deleting then restoring a task returns it unchanged; `purgeTrash` removes a task deleted 31 days earlier and keeps one deleted 29 days earlier; titles are validated (Review Focus 4).
 - [ ] **Step 2:** Run `npx vitest run tests/server`; expected FAIL.
 - [ ] **Step 3:** Implement against the schema. Every function starts by resolving the project's or task's team and calling `assertCanSeeTeam`; there is no other path to the data.
 - [ ] **Step 4:** Run tests; expected PASS.
@@ -179,7 +180,7 @@ tests/...                       mirrors src
 
 - [ ] **Step 1: Write failing tests:** a `TeamCard` renders the team name, "2 projects", and an amber badge "2 pending" only when pending is greater than 0; rows render in priority order; an `urgent` project shows "URGENT", `normal` shows no label; a due date 3 days away and an overdue one carry the red class while a later one does not; the row shows counts for all five statuses.
 - [ ] **Step 2:** Run `npx vitest run tests/components`; expected FAIL.
-- [ ] **Step 3:** Build the components to match `docs/design.md` (Projects screen): pale team-tint header, solid icon, large team name, thick left edge, indented project rows, "+ Add project" row, "All teams" and "Has Pending" filters, sidebar showing only Projects. Keep the filter state in the URL query.
+- [ ] **Step 3:** Build the components to match `docs/design.md` (Projects screen): pale team-tint header, solid icon, large team name, thick left edge, indented project rows, "+ Add project" row, "All teams" and "Has Pending" filters, sidebar showing only Projects. Keep the filter state in the URL query. Add the keyboard hints from the design: arrow keys move between project rows, Enter opens the project, N opens the new-project dialog.
 - [ ] **Step 4:** Run tests; expected PASS. Start the app and check the screen against the mockup visually.
 - [ ] **Step 5: Commit** `feat: projects screen`.
 
@@ -193,7 +194,7 @@ tests/...                       mirrors src
 - Consumes: Task 5 task functions; Task 2 rules.
 - Produces: `<StatusTabs counts active />` (five tabs with a divider before Succeeded, amber Pending count, "+ New task" button), `<TaskPanel mode task members onSubmit onDelete onClose />` where `mode` is `"create" | "edit"`; server actions `createTaskAction`, `updateTaskAction`, `deleteTaskAction`, `restoreTaskAction` wrapping Task 5 and returning `{ok: true} | {ok: false; error: string}`.
 
-- [ ] **Step 1: Write failing tests:** tabs render in order Unassigned, Assigned, Doing, Pending, then Succeeded after a divider, with no "Active" or "All" tab; the page opens on Doing by default; the panel's Save button is disabled for a blank title; choosing Pending shows a required "Why is it stuck?" field and keeps Save disabled until filled; in a Doing task the owner list has no "Nobody" option; choosing an owner on an Unassigned task sets the status to Assigned in the form; a title containing `<img src=x onerror=alert(1)>` renders as text (Review Focus 4); rows show no status text; Pending rows show "Stuck: reason".
+- [ ] **Step 1: Write failing tests:** tabs render in order Unassigned, Assigned, Doing, Pending, then Succeeded after a divider, with no "Active" or "All" tab; the page uses `resolveTab` so it opens on Doing by default; the panel's Save button is disabled for a blank title; choosing Pending shows a required "Why is it stuck?" field and keeps Save disabled until filled; in a Doing task the owner list has no "Nobody" option; choosing an owner on an Unassigned task sets the status to Assigned in the form; a title containing `<img src=x onerror=alert(1)>` renders as text (Review Focus 4); rows show no status text; Pending rows show "Stuck: reason".
 - [ ] **Step 2:** Run `npx vitest run tests/components`; expected FAIL.
 - [ ] **Step 3:** Implement. The tab is chosen with a `?tab=` query value; the panel opens in a right side column. Delete calls `deleteTaskAction` and shows a toast with Undo (calls `restoreTaskAction`) for about 4 seconds. The Trash page lists `listTrash` with Restore. The panel's behaviour follows the prototype `interactive-task-panel.html`, but written fresh with the real rules.
 - [ ] **Step 4:** Run tests; expected PASS. Manually: create a task with no owner, check it is in Unassigned; assign it, check Assigned; move it to Pending with a reason, check the amber count; delete and undo.
@@ -208,9 +209,9 @@ tests/...                       mirrors src
 
 **Interfaces:**
 - Consumes: Task 5 team and project functions.
-- Produces: dialogs calling `createTeam`, `createProject`, `addMemberByEmail`, `removeMember`, `updateProject`, `setProjectArchived`, `deleteProject` through server actions, each returning `{ok: true} | {ok: false; error: string}` and showing the error text.
+- Produces: dialogs calling `createTeam`, `createProject`, `addMemberByEmail`, `removeMember`, `updateProject`, `setProjectArchived` through server actions, each returning `{ok: true} | {ok: false; error: string}` and showing the error text.
 
-- [ ] **Step 1: Write failing tests:** adding a member shows them in the list; removing a member who owns active tasks shows "Reassign 2 tasks first"; creating a project requires a name; an "Archived" filter shows archived projects that are otherwise hidden; deleting a team with projects shows the block message.
+- [ ] **Step 1: Write failing tests:** adding a member shows them in the list; removing a member who owns active tasks shows "Reassign 2 tasks first"; creating a project requires a name; an "Archived" filter shows archived projects that are otherwise hidden; deleting a team with projects shows the block message; there is no delete button on a project.
 - [ ] **Step 2:** Run tests; expected FAIL.
 - [ ] **Step 3:** Implement the dialogs and wire them to the screens. Keep forms minimal (name, color, priority, due date, member email).
 - [ ] **Step 4:** Run tests; expected PASS.
@@ -226,7 +227,7 @@ tests/...                       mirrors src
 - Consumes: everything above.
 - Produces: a live site on a free Railway address with the owner able to sign in; `purgeTrash` runs daily (Railway cron or a protected route called by a scheduler).
 
-- [ ] **Step 1:** Write `docs/deploy.md` with owner-friendly steps: create the Railway project, add PostgreSQL, set the six env vars, and create the Google OAuth credential (Google Cloud Console, OAuth consent screen, Web client, authorized redirect `https://<railway-address>/api/auth/callback/google`).
+- [ ] **Step 1:** Write `docs/deploy.md` with owner-friendly steps: create the Railway project, add PostgreSQL, set the env vars, and add the Railway address as a second authorized redirect on the Google OAuth client made in Task 4 (`https://<railway-address>/api/auth/callback/google`).
 - [ ] **Step 2:** Add the start script and a protected `/api/cron/purge` route that checks a `CRON_SECRET` and calls `purgeTrash(new Date())`; test it returns 401 without the secret and a count with it.
 - [ ] **Step 3:** Check whether the Railway plan includes database backups. If it does not, add a documented daily export.
 - [ ] **Step 4:** Deploy. Verify: the site loads, signing in with the owner's account works, an unlisted Google account lands on "not invited", and creating a team, project and task persists after a redeploy.

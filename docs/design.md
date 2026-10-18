@@ -112,7 +112,9 @@ Marked above as assumed or the author's choice:
 - **Owner picker:** lists the members of the project's team.
 - **Who sees what:** the workspace owner sees every team. Everyone else sees only the teams they belong to. Anyone in a team can create and edit projects and tasks in it.
 - **Ordering:** projects sort by priority, then by due date. Tasks in a tab sort by due date (no date last), then by creation time. No manual reordering in version 1.
-- **Project actions:** edit name, priority and due date; archive and unarchive; delete (with its tasks, to the trash). Archived projects are hidden from the Projects screen and from counts, and shown under an "Archived" filter. Deleting a team is only allowed when it has no projects.
+- **Project actions:** edit name, priority and due date; archive and unarchive; no delete in version 1 (archiving covers it). Archived projects are hidden from the Projects screen and from counts, and shown under an "Archived" filter. Deleting a team is only allowed when it has no projects.
+- **Removing a team member:** their Assigned tasks return to Unassigned; if they own Doing or Pending tasks, removal is blocked until those are reassigned; their Succeeded tasks keep them as owner.
+- **Team creator:** whoever creates a team is automatically a member of it.
 - **Task transitions:** any status can move to any other, except that the owner rules above still apply. Moving back to Unassigned clears the owner. The stuck reason is cleared when a task leaves Pending. A Succeeded task can be reopened by moving it to Doing.
 - **Trash:** a small "Trash" link on the project screen lists deleted tasks with Restore. Items stay 30 days. The Undo after deleting is a toast only.
 - **"Close" due date:** within 3 days, or overdue, shows red.
