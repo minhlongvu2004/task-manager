@@ -40,6 +40,11 @@ export function sortTasks<T extends { dueDate: string | null; createdAt: string 
   );
 }
 
+/** The Projects screen hides archived projects; the Archived filter shows only those. */
+export function filterByArchived<T extends { state: string }>(items: T[], archived: boolean): T[] {
+  return items.filter((p) => (p.state === "archived") === archived);
+}
+
 export function resolveTab(query: string | undefined): TaskStatus {
   return STATUS_ORDER.find((s) => s === query) ?? "doing";
 }

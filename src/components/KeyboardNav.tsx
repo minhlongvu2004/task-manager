@@ -28,7 +28,11 @@ export function handleProjectKeys(
 
   if (e.key === "n" || e.key === "N") {
     e.preventDefault();
-    navigate("?new=project");
+    // Keep the current filters; the dialog is driven by the URL.
+    const q = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+    q.set("new", "project");
+    q.delete("forTeam");
+    navigate(`?${q.toString()}`);
     return;
   }
 

@@ -29,10 +29,12 @@ export function ProjectRow({
   project,
   counts,
   today,
+  archived = false,
 }: {
   project: ProjectRowProject;
   counts: Record<TaskStatus, number>;
   today: string;
+  archived?: boolean;
 }) {
   const state = dueState(project.dueDate, today);
   const dueRed = state === "soon" || state === "overdue";
@@ -44,6 +46,11 @@ export function ProjectRow({
     >
       <span className="min-w-0 truncate">
         <span className="font-medium">{project.name}</span>
+        {archived && (
+          <span className="ml-2 rounded-md bg-zinc-100 px-1.5 py-0.5 align-[1px] text-[10px] font-bold tracking-wider text-zinc-600">
+            Archived
+          </span>
+        )}
         {project.priority === "urgent" && (
           <span className="ml-2 rounded-md bg-red-100 px-1.5 py-0.5 align-[1px] text-[10px] font-bold tracking-wider text-red-700">
             URGENT

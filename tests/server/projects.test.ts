@@ -9,8 +9,8 @@ let owner: SessionUser, alice: SessionUser, bob: SessionUser;
 let tA: string, tB: string;
 beforeEach(async () => {
   ({ owner, alice, bob } = await setup());
-  tA = (await createTeam(owner, { name: "A", color: "#fff" })).id;
-  tB = (await createTeam(owner, { name: "B", color: "#fff" })).id;
+  tA = (await createTeam(owner, { name: "A", color: "#ffffff" })).id;
+  tB = (await createTeam(owner, { name: "B", color: "#ffffff" })).id;
   await addMemberByEmail(owner, tA, "alice@example.com");
 });
 

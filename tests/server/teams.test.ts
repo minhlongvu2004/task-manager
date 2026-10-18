@@ -16,23 +16,30 @@ beforeEach(async () => {
 
 describe("teams", () => {
   it("createTeam adds the creator as member; owner sees all teams, members only theirs", async () => {
-    const t = await createTeam(owner, { name: "Alpha", color: "#f00" });
+    const t = await createTeam(owner, { name: "Alpha", color: "#ff0000" });
     const members = await listTeamMembers(owner, t.id);
     expect(members.map((m) => m.email)).toContain("owner@example.com");
     await addMemberByEmail(owner, t.id, "alice@example.com");
-    await createTeam(owner, { name: "Beta", color: "#0f0" });
+    await createTeam(owner, { name: "Beta", color: "#00ff00" });
     expect((await listTeams(owner)).map((x) => x.name).sort()).toEqual(["Alpha", "Beta"]);
     expect((await listTeams(alice)).map((x) => x.name)).toEqual(["Alpha"]);
     expect(await listTeams(bob)).toEqual([]);
   });
 
   it("validates name and color", async () => {
-    await expect(createTeam(owner, { name: "  ", color: "#fff" })).rejects.toBeInstanceOf(BlockedError);
+    await expect(createTeam(owner, { name: "  ", color: "#ffffff" })).rejects.toBeInstanceOf(BlockedError);
     await expect(createTeam(owner, { name: "x", color: " " })).rejects.toBeInstanceOf(BlockedError);
   });
 
+  it("requires color to be a 6-digit hex value", async () => {
+    for (const color of ["#fff", "red", "#12345g", "#1234567", "url(x)", "#ffffff;x"]) {
+      await expect(createTeam(owner, { name: "x", color })).rejects.toBeInstanceOf(BlockedError);
+    }
+    await expect(createTeam(owner, { name: "ok", color: "#7C4dde" })).resolves.toMatchObject({ color: "#7C4dde" });
+  });
+
   it("addMemberByEmail works for never-signed-in email and sign-in reuses the row", async () => {
-    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     const m = await addMemberByEmail(owner, t.id, "  New@Example.COM ");
     expect(m.email).toBe("new@example.com");
     expect(m.name).toBeNull();
@@ -46,7 +53,7 @@ describe("teams", () => {
   });
 
   it("addMemberByEmail rejects bad emails and non-members", async () => {
-    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await expect(addMemberByEmail(owner, t.id, "nope")).rejects.toBeInstanceOf(BlockedError);
     await expect(addMemberByEmail(bob, t.id, "x@example.com")).rejects.toBeInstanceOf(NotFoundError);
     await expect(listTeamMembers(bob, t.id)).rejects.toBeInstanceOf(NotFoundError);
@@ -54,14 +61,14 @@ describe("teams", () => {
   });
 
   it("a plain member can add members to their own team", async () => {
-    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await addMemberByEmail(owner, t.id, "alice@example.com");
     const m = await addMemberByEmail(alice, t.id, "bob@example.com");
     expect(m.id).toBe(bob.id);
   });
 
   it("only the workspace owner can invite a brand-new email", async () => {
-    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await addMemberByEmail(owner, t.id, "alice@example.com");
     const m = await addMemberByEmail(owner, t.id, "fresh@example.com");
     expect(m.email).toBe("fresh@example.com");
@@ -78,7 +85,7 @@ describe("teams", () => {
   describe("removeMember", () => {
     let teamId: string, projectId: string;
     beforeEach(async () => {
-      teamId = (await createTeam(owner, { name: "T", color: "#fff" })).id;
+      teamId = (await createTeam(owner, { name: "T", color: "#ffffff" })).id;
       await addMemberByEmail(owner, teamId, "alice@example.com");
       projectId = (await createProject(owner, { teamId, name: "P", priority: "normal", dueDate: null })).id;
     });
@@ -115,7 +122,7 @@ describe("teams", () => {
     });
 
     it("is scoped to one team", async () => {
-      const teamB = (await createTeam(owner, { name: "B", color: "#fff" })).id;
+      const teamB = (await createTeam(owner, { name: "B", color: "#ffffff" })).id;
       await addMemberByEmail(owner, teamB, "alice@example.com");
       const pB = (await createProject(owner, { teamId: teamB, name: "PB", priority: "normal", dueDate: null })).id;
       const doingB = await createTask(owner, pB, { title: "d", ownerId: alice.id, dueDate: null });
@@ -148,13 +155,13 @@ describe("teams", () => {
   });
 
   it("deleteTeam is blocked with projects (even archived) and works when empty", async () => {
-    const t = await createTeam(owner, { name: "T", color: "#fff" });
+    const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await expect(deleteTeam(bob, t.id)).rejects.toBeInstanceOf(NotFoundError);
     const p = await createProject(owner, { teamId: t.id, name: "P", priority: "normal", dueDate: null });
     await expect(deleteTeam(owner, t.id)).rejects.toBeInstanceOf(BlockedError);
     await setProjectArchived(owner, p.id, true);
     await expect(deleteTeam(owner, t.id)).rejects.toBeInstanceOf(BlockedError);
-    const t2 = await createTeam(owner, { name: "Empty", color: "#fff" });
+    const t2 = await createTeam(owner, { name: "Empty", color: "#ffffff" });
     await deleteTeam(owner, t2.id);
     expect((await listTeams(owner)).map((x) => x.id)).not.toContain(t2.id);
   });

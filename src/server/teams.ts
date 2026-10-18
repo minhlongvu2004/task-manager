@@ -18,7 +18,8 @@ export async function listTeams(user: SessionUser) {
 
 export async function createTeam(user: SessionUser, input: { name: string; color: string }) {
   const name = checkName(input.name, "Team name");
-  const color = checkName(input.color, "Color", 50);
+  const color = typeof input.color === "string" ? input.color : "";
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) throw new BlockedError("Color must be a hex value like #7c4dde");
   const db = await getDb();
   return db.transaction(async (tx) => {
     // Version 1 has a single workspace; every team is created in it.

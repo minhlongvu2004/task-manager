@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { ProjectMenu } from "@/components/ProjectMenu";
 import { ProjectWorkspace } from "@/components/ProjectWorkspace";
 import { Sidebar } from "@/components/Sidebar";
 import { safeColor } from "@/components/TeamCard";
@@ -87,9 +88,23 @@ async function ProjectContent({ params, searchParams }: Pick<PageProps<"/project
             <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${PRIORITY_STYLE[project.priority]}`}>
               {PRIORITY_LABEL[project.priority]}
             </span>
-            <Link href={`/projects/${id}/trash`} className="ml-auto text-xs text-zinc-500 hover:text-zinc-800">
-              Trash
-            </Link>
+            {project.state === "archived" && (
+              <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">ARCHIVED</span>
+            )}
+            <div className="ml-auto flex items-center gap-3">
+              <ProjectMenu
+                project={{
+                  id,
+                  name: project.name,
+                  priority: project.priority,
+                  dueDate: project.dueDate,
+                  archived: project.state === "archived",
+                }}
+              />
+              <Link href={`/projects/${id}/trash`} className="text-xs text-zinc-500 hover:text-zinc-800">
+                Trash
+              </Link>
+            </div>
           </div>
           <p className="mt-1.5 text-xs text-zinc-600">
             {[

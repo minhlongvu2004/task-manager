@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TaskStatus } from "@/lib/domain/status";
+import { MembersButton, type TeamMember } from "./MembersPanel";
 import { ProjectRow, type ProjectRowProject } from "./ProjectRow";
 
 export type TeamCardProject = ProjectRowProject & { counts: Record<TaskStatus, number> };
@@ -18,11 +19,20 @@ export function TeamCard({
   projects,
   today,
   memberCount,
+  members,
+  archived = false,
+  newProjectHref = "?new=project",
 }: {
   team: TeamCardTeam;
   projects: TeamCardProject[];
   today: string;
   memberCount?: number;
+  /** When given, the header gets a Members button that opens the members panel. */
+  members?: TeamMember[];
+  /** Archived view: rows are labelled Archived and there is no Add project row. */
+  archived?: boolean;
+  /** Link for the "+ Add project" row; keeps the current filters and names this team. */
+  newProjectHref?: string;
 }) {
   const color = safeColor(team.color);
   const pending = projects.reduce((sum, p) => sum + p.counts.pending, 0);
@@ -56,6 +66,7 @@ export function TeamCard({
           <h2 className="truncate text-[21px] font-bold leading-tight">{team.name}</h2>
           <p className="mt-0.5 text-xs text-zinc-600">{summary}</p>
         </div>
+        {members && <MembersButton teamId={team.id} teamName={team.name} members={members} />}
         {pending > 0 && (
           <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">
             {`${pending} pending`}
@@ -66,15 +77,17 @@ export function TeamCard({
         <div className="ml-1.5 border-l-2 border-zinc-100 pl-4">
           {projects.map((p) => (
             <div key={p.id} className="border-t border-zinc-100 first:border-t-0">
-              <ProjectRow project={p} counts={p.counts} today={today} />
+              <ProjectRow project={p} counts={p.counts} today={today} archived={archived} />
             </div>
           ))}
-          <Link
-            href="?new=project"
-            className="block rounded-lg px-1.5 py-2 text-sm text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
-          >
-            + Add project
-          </Link>
+          {!archived && (
+            <Link
+              href={newProjectHref}
+              className="block rounded-lg px-1.5 py-2 text-sm text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+            >
+              + Add project
+            </Link>
+          )}
         </div>
       </div>
     </section>
