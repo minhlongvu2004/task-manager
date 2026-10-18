@@ -22,3 +22,17 @@ describe("client", () => {
     await expect(mod.ensureMigrated()).resolves.toBeUndefined();
   }, 30_000);
 });
+
+describe("production without DATABASE_URL", () => {
+  it("throws a clear error at first use, not at import", async () => {
+    vi.resetModules();
+    delete (globalThis as { __tm?: unknown }).__tm;
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "");
+    const mod = await import("@/db/client"); // importing must not throw (next build has no DB)
+    await expect(mod.ensureMigrated()).rejects.toThrow(/DATABASE_URL is not set/);
+    expect(() => mod.db.select).toThrow(/DATABASE_URL is not set/);
+    vi.unstubAllEnvs();
+    delete (globalThis as { __tm?: unknown }).__tm;
+  });
+});

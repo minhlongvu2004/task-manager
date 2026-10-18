@@ -25,6 +25,12 @@ describe("authorized callback", () => {
   it("keeps sign-in, not-invited and auth routes public", () => {
     for (const p of ["/signin", "/not-invited", "/api/auth/callback/google"]) expect(check(p, false)).toBe(true);
   });
+  it("lets the healthcheck and cron routes through without a session", () => {
+    for (const p of ["/api/health", "/api/cron/purge"]) expect(check(p, false)).toBe(true);
+  });
+  it("does not open look-alike or other api paths", () => {
+    for (const p of ["/api/health/x", "/api/cron/other", "/api/cron"]) expect(check(p, false)).toBe(false);
+  });
   it("requires a session elsewhere", () => {
     expect(check("/projects/1", false)).toBe(false);
     expect(check("/projects/1", true)).toBe(true);

@@ -12,6 +12,8 @@ export const authConfig = {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
       if (pathname.startsWith("/api/auth")) return true;
+      // Healthcheck, and the cron route (which checks its own CRON_SECRET bearer token).
+      if (pathname === "/api/health" || pathname === "/api/cron/purge") return true;
       if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
       return Boolean(auth?.user);
     },
