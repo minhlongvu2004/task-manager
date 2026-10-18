@@ -123,6 +123,24 @@ describe("TaskPanel", () => {
   });
 });
 
+describe("TaskPanel former member owner", () => {
+  it("keeps the real owner selected and offers a Former member option", () => {
+    panel("edit", { ...base, status: "succeeded", ownerId: "gone" });
+    expect(owner().value).toBe("gone");
+    expect(Array.from(owner().options).map((o) => o.text)).toContain("Former member");
+  });
+
+  it("does not show validation or errors in red, and Delete is not red", async () => {
+    panel("edit", { ...base, status: "unassigned", ownerId: null }, { onSubmit: vi.fn().mockResolvedValue({ ok: false, error: "Nope" }) });
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "doing");
+    expect(screen.getByText("Choose an owner for this status.").className).not.toMatch(/red/);
+    expect(screen.getByRole("button", { name: "Delete" }).className).not.toMatch(/red/);
+    await userEvent.selectOptions(owner(), "u1");
+    await userEvent.click(save());
+    expect((await screen.findByRole("alert")).className).not.toMatch(/red/);
+  });
+});
+
 describe("Toast", () => {
   afterEach(() => vi.useRealTimers());
 

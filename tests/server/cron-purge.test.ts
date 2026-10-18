@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { tasks } from "@/db/schema";
+import { tasks, verificationTokens } from "@/db/schema";
 import { createTeam } from "@/server/teams";
 import { createProject } from "@/server/projects";
 import { createTask } from "@/server/tasks";
@@ -45,7 +45,16 @@ describe("POST /api/cron/purge", () => {
   it("purges and returns the count with the right secret", async () => {
     const res = await call("Bearer s3cret");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ purged: 1 });
+    expect(await res.json()).toEqual({ purged: 1, tokensPurged: 0 });
     expect(await remaining()).toBe(0);
+  });
+  it("deletes expired verification tokens and keeps valid ones", async () => {
+    await db.insert(verificationTokens).values([
+      { identifier: "a@example.com", token: "old", expires: new Date(Date.now() - 60_000) },
+      { identifier: "b@example.com", token: "fresh", expires: new Date(Date.now() + 3_600_000) },
+    ]);
+    const res = await call("Bearer s3cret");
+    expect(await res.json()).toEqual({ purged: 1, tokensPurged: 1 });
+    expect((await db.select().from(verificationTokens)).map((r) => r.token)).toEqual(["fresh"]);
   });
 });

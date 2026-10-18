@@ -106,7 +106,7 @@ describe("teams", () => {
       await updateTask(owner, t2.id, { status: "pending", stuckReason: "no API key" });
       await expect(removeMember(owner, teamId, alice.id)).rejects.toThrow("Reassign 2 tasks first");
       await updateTask(owner, t1.id, { ownerId: owner.id });
-      await expect(removeMember(owner, teamId, alice.id)).rejects.toThrow("Reassign 1 tasks first");
+      await expect(removeMember(owner, teamId, alice.id)).rejects.toThrow("Reassign 1 task first");
       await updateTask(owner, t2.id, { ownerId: owner.id });
       await removeMember(owner, teamId, alice.id);
       expect((await listTeamMembers(owner, teamId)).map((m) => m.id)).not.toContain(alice.id);
@@ -158,7 +158,9 @@ describe("teams", () => {
     const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await expect(deleteTeam(bob, t.id)).rejects.toBeInstanceOf(NotFoundError);
     const p = await createProject(owner, { teamId: t.id, name: "P", priority: "normal", dueDate: null });
-    await expect(deleteTeam(owner, t.id)).rejects.toBeInstanceOf(BlockedError);
+    await expect(deleteTeam(owner, t.id)).rejects.toThrow(
+      "This team still has 1 project (archived ones count). Teams with projects can't be deleted.",
+    );
     await setProjectArchived(owner, p.id, true);
     await expect(deleteTeam(owner, t.id)).rejects.toBeInstanceOf(BlockedError);
     const t2 = await createTeam(owner, { name: "Empty", color: "#ffffff" });

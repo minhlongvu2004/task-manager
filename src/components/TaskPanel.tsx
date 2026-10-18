@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { STATUS_LABEL, STATUS_ORDER, type TaskStatus } from "@/lib/domain/status";
 import { setOwner, validateTitle, type TaskState } from "@/lib/domain/task-rules";
+import { ErrorText } from "./Dialog";
 import type { MemberItem, TaskItem } from "./TaskList";
 
 export type TaskFormValues = {
@@ -123,13 +124,16 @@ export function TaskPanel({
       <select id="tp-owner" value={ownerId ?? ""} onChange={(e) => changeOwner(e.target.value)} className={fld}>
         {allowNobody && <option value="">Nobody</option>}
         {ownerId === null && !allowNobody && <option value="">Choose an owner</option>}
+        {ownerId !== null && !members.some((m) => m.id === ownerId) && (
+          <option value={ownerId}>Former member</option>
+        )}
         {members.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label}
           </option>
         ))}
       </select>
-      {needsOwner && <p className="mt-1 text-xs text-red-600">Choose an owner for this status.</p>}
+      {needsOwner && <p className="mt-1 text-xs text-zinc-600">Choose an owner for this status.</p>}
       {status === "pending" && (
         <>
           <label htmlFor="tp-reason" className={lbl}>
@@ -149,15 +153,11 @@ export function TaskPanel({
         {edit ? "Due date" : "Due date (optional)"}
       </label>
       <input id="tp-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={fld} />
-      {error && (
-        <p role="alert" className="mt-2 text-xs text-red-600">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       <div className="mt-4 flex items-center justify-between">
         <span>
           {edit && (
-            <button type="button" onClick={onDelete} className="text-sm text-red-600 hover:underline">
+            <button type="button" onClick={onDelete} className="text-sm text-zinc-600 underline hover:text-zinc-900">
               Delete
             </button>
           )}

@@ -4,7 +4,7 @@ import { db } from "@/db/client";
 import { tasks } from "@/db/schema";
 import { BlockedError, NotFoundError } from "@/server/errors";
 import type { SessionUser } from "@/server/access";
-import { addMemberByEmail, createTeam } from "@/server/teams";
+import { addMemberByEmail, createTeam, removeMember } from "@/server/teams";
 import { createProject } from "@/server/projects";
 import {
   createTask,
@@ -19,10 +19,10 @@ import {
 import { setup } from "./fixtures";
 
 let owner: SessionUser, alice: SessionUser, bob: SessionUser;
-let pA: string, pB: string;
+let pA: string, pB: string, tA: string;
 beforeEach(async () => {
   ({ owner, alice, bob } = await setup());
-  const tA = (await createTeam(owner, { name: "A", color: "#ffffff" })).id;
+  tA = (await createTeam(owner, { name: "A", color: "#ffffff" })).id;
   const tB = (await createTeam(owner, { name: "B", color: "#ffffff" })).id;
   await addMemberByEmail(owner, tA, "alice@example.com");
   await addMemberByEmail(owner, tB, "bob@example.com");
@@ -151,6 +151,33 @@ describe("lists, delete, restore, purge", () => {
     await expect(deleteTask(alice, t.id)).rejects.toBeInstanceOf(NotFoundError);
     expect(await restoreTask(alice, t.id)).toEqual(before);
     await expect(restoreTask(alice, t.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+  it("restoring a doing task whose owner left the team makes it unassigned; succeeded keeps its owner", async () => {
+    const doing = await mk(owner, pA, "d", alice.id);
+    await updateTask(owner, doing.id, { status: "doing" });
+    const done = await mk(owner, pA, "s", alice.id);
+    await updateTask(owner, done.id, { status: "doing" });
+    await updateTask(owner, done.id, { status: "succeeded" });
+    const pend = await mk(owner, pA, "p", alice.id);
+    await updateTask(owner, pend.id, { status: "pending", stuckReason: "blocked" });
+    await deleteTask(owner, doing.id);
+    await deleteTask(owner, done.id);
+    await deleteTask(owner, pend.id);
+    await removeMember(owner, tA, alice.id);
+    const r1 = await restoreTask(owner, doing.id);
+    expect(r1).toMatchObject({ status: "unassigned", ownerId: null, stuckReason: null, deletedAt: null });
+    const r2 = await restoreTask(owner, pend.id);
+    expect(r2).toMatchObject({ status: "unassigned", ownerId: null, stuckReason: null });
+    const r3 = await restoreTask(owner, done.id);
+    expect(r3).toMatchObject({ status: "succeeded", ownerId: alice.id });
+  });
+  it("updating a task without changing its owner works even if the owner is no longer a member", async () => {
+    const done = await mk(owner, pA, "s", alice.id);
+    await updateTask(owner, done.id, { status: "doing" });
+    await updateTask(owner, done.id, { status: "succeeded" });
+    await removeMember(owner, tA, alice.id);
+    const row = await updateTask(owner, done.id, { ownerId: alice.id, title: "renamed" });
+    expect(row).toMatchObject({ title: "renamed", ownerId: alice.id });
   });
   it("purgeTrash removes >30 days, keeps 29 days", async () => {
     const now = new Date("2026-10-18T12:00:00Z");

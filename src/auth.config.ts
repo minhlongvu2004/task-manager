@@ -18,7 +18,8 @@ export const authConfig = {
       // Healthcheck, and the cron route (which checks its own CRON_SECRET bearer token).
       if (pathname === "/api/health" || pathname === "/api/cron/purge") return true;
       if (pathname === "/verify-request") return true; // exact path only
-      if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
+      // Exact matches: the sign-in server actions post to /signin itself.
+      if (PUBLIC_PATHS.includes(pathname)) return true;
       return Boolean(auth?.user);
     },
   },

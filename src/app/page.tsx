@@ -7,15 +7,11 @@ import { NewTeamButton } from "@/components/NewTeamDialog";
 import { Sidebar } from "@/components/Sidebar";
 import { TeamCard, type TeamCardProject } from "@/components/TeamCard";
 import { filterByArchived } from "@/lib/domain/project-view";
+import { localToday } from "@/lib/today";
 import { getSessionUser } from "@/server/access";
 import { listProjects } from "@/server/projects";
 import { taskCounts } from "@/server/tasks";
 import { listTeamMembers, listTeams } from "@/server/teams";
-
-// Server-local calendar date as YYYY-MM-DD (en-CA formats this way), computed once per request.
-function localToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
 
 type Filters = { team?: string; pending: boolean; archived: boolean };
 

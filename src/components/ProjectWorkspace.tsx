@@ -27,6 +27,8 @@ export function buildPatch(task: TaskItem, v: TaskFormValues) {
   return patch;
 }
 
+const ERROR_MS = 8000;
+
 type Open = { kind: "new" } | { kind: "edit"; id: string } | null;
 
 /**
@@ -49,7 +51,8 @@ export function ProjectWorkspace({
   today: string;
 }) {
   const [open, setOpen] = useState<Open>(null);
-  const [toast, setToast] = useState<{ id: string } | null>(null);
+  const [toast, setToast] = useState<{ id: string } | { error: string } | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const editing = open?.kind === "edit" ? tasks.find((t) => t.id === open.id) : undefined;
   const expire = useCallback(() => setToast(null), []);
 
@@ -95,19 +98,31 @@ export function ProjectWorkspace({
               if (res.ok) {
                 setOpen(null);
                 setToast({ id: editing.id });
+              } else {
+                setToast({ error: res.error });
               }
             }}
           />
         )}
       </div>
-      {toast && (
+      {toast && "error" in toast && (
+        <Toast key={`error-${toast.error}`} message={toast.error} onExpire={expire} duration={ERROR_MS} />
+      )}
+      {toast && "id" in toast && (
         <Toast
           key={toast.id}
           message="Task deleted"
           onExpire={expire}
+          undoDisabled={undoing}
           onUndo={async () => {
-            await restoreTaskAction(toast.id);
-            setToast(null);
+            if (undoing) return;
+            setUndoing(true);
+            try {
+              const res = await restoreTaskAction(toast.id);
+              setToast(res.ok ? null : { error: res.error });
+            } finally {
+              setUndoing(false);
+            }
           }}
         />
       )}

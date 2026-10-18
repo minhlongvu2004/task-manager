@@ -25,6 +25,7 @@ export function handleProjectKeys(
   { root, navigate }: { root: ParentNode; navigate: (href: string) => void },
 ) {
   if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+  if (document.querySelector('[role="dialog"]')) return; // a dialog owns the keyboard while open
 
   if (e.key === "n" || e.key === "N") {
     e.preventDefault();

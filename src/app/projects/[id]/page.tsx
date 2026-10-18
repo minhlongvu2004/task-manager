@@ -2,28 +2,19 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { ProjectMenu } from "@/components/ProjectMenu";
+import { PriorityLabel } from "@/components/PriorityLabel";
 import { ProjectWorkspace } from "@/components/ProjectWorkspace";
 import { Sidebar } from "@/components/Sidebar";
 import { safeColor } from "@/components/TeamCard";
 import type { TaskItem } from "@/components/TaskList";
-import { resolveTab, type Priority } from "@/lib/domain/project-view";
+import { resolveTab } from "@/lib/domain/project-view";
+import { localToday } from "@/lib/today";
 import { getSessionUser } from "@/server/access";
 import { NotFoundError } from "@/server/errors";
 import { getProject } from "@/server/projects";
 import { listTasks, taskCounts } from "@/server/tasks";
 import { listTeamMembers, listTeams } from "@/server/teams";
 
-// Server-local calendar date as YYYY-MM-DD (en-CA formats this way).
-function localToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
-
-const PRIORITY_LABEL: Record<Priority, string> = { urgent: "URGENT", high: "HIGH", normal: "NORMAL" };
-const PRIORITY_STYLE: Record<Priority, string> = {
-  urgent: "bg-red-100 text-red-700", // red is reserved for urgent and near-due
-  high: "bg-zinc-200 text-zinc-700",
-  normal: "bg-zinc-100 text-zinc-600",
-};
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function ProjectPage({ params, searchParams }: PageProps<"/projects/[id]">) {
@@ -85,9 +76,7 @@ async function ProjectContent({ params, searchParams }: Pick<PageProps<"/project
         >
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-[22px] font-bold leading-tight">{project.name}</h1>
-            <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${PRIORITY_STYLE[project.priority]}`}>
-              {PRIORITY_LABEL[project.priority]}
-            </span>
+            <PriorityLabel priority={project.priority} className="" />
             {project.state === "archived" && (
               <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">ARCHIVED</span>
             )}

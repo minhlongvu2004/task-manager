@@ -8,6 +8,7 @@ if (!APP_URL || !CRON_SECRET) {
 const res = await fetch(new URL("/api/cron/purge", APP_URL), {
   method: "POST",
   headers: { authorization: `Bearer ${CRON_SECRET}` },
+  signal: AbortSignal.timeout(30000),
 });
 console.log(res.status, await res.text());
 process.exit(res.ok ? 0 : 1);

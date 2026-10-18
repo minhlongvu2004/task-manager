@@ -42,7 +42,7 @@ export function TaskList({
     <ul>
       {tasks.map((t) => {
         const owner = members.find((m) => m.id === t.ownerId);
-        const red = t.dueDate !== null && ["soon", "overdue"].includes(dueState(t.dueDate, today));
+        const red = t.dueDate !== null && t.status !== "succeeded" && ["soon", "overdue"].includes(dueState(t.dueDate, today));
         return (
           <li key={t.id} className="border-t border-zinc-100 first:border-t-0">
             <button

@@ -84,7 +84,7 @@ export async function removeMember(user: SessionUser, teamId: string, userId: st
           isNull(tasks.deletedAt),
         ),
       );
-    if (n > 0) throw new BlockedError(`Reassign ${n} tasks first`);
+    if (n > 0) throw new BlockedError(`Reassign ${n} ${n === 1 ? "task" : "tasks"} first`);
     // Assigned tasks (including soft-deleted ones, so a later restore stays consistent) go back
     // to unassigned. Soft-deleted doing/pending tasks and all succeeded tasks keep their owner.
     await tx
@@ -102,7 +102,9 @@ export async function deleteTeam(user: SessionUser, teamId: string): Promise<voi
     // Exclusive team lock: createProject share-locks the same row, so no project can slip in.
     await tx.select({ id: teams.id }).from(teams).where(eq(teams.id, teamId)).for("update");
     const [{ n }] = await tx.select({ n: count() }).from(projects).where(eq(projects.teamId, teamId));
-    if (n > 0) throw new BlockedError("Delete or move this team's projects first");
+    if (n > 0) throw new BlockedError(
+        `This team still has ${n} ${n === 1 ? "project" : "projects"} (archived ones count). Teams with projects can't be deleted.`,
+      );
     await tx.delete(teams).where(eq(teams.id, teamId));
   });
 }

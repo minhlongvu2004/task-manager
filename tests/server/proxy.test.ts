@@ -31,6 +31,9 @@ describe("authorized callback", () => {
   it("does not open look-alike or other api paths", () => {
     for (const p of ["/api/health/x", "/api/cron/other", "/api/cron"]) expect(check(p, false)).toBe(false);
   });
+  it("keeps /signin and /not-invited public by exact match only", () => {
+    for (const p of ["/signin/x", "/not-invited/x", "/signinx", "/not-invitedx"]) expect(check(p, false), p).toBe(false);
+  });
   it("requires a session elsewhere", () => {
     expect(check("/projects/1", false)).toBe(false);
     expect(check("/projects/1", true)).toBe(true);

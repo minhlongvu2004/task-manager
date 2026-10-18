@@ -102,7 +102,7 @@ export async function updateTask(
 
     let state: TaskState = { status: cur.status, ownerId: cur.ownerId, stuckReason: cur.stuckReason };
     if (patch.ownerId !== undefined) {
-      if (patch.ownerId !== null) await assertTeamMember(tx, teamId, patch.ownerId);
+      if (patch.ownerId !== null && patch.ownerId !== cur.ownerId) await assertTeamMember(tx, teamId, patch.ownerId);
       state = rule(setOwner(state, patch.ownerId));
     }
     if (patch.status !== undefined && patch.status !== state.status) {
@@ -141,15 +141,33 @@ export async function deleteTask(user: SessionUser, taskId: string): Promise<voi
 }
 
 export async function restoreTask(user: SessionUser, taskId: string) {
-  await authorizeTask(user, taskId);
+  const { teamId } = await authorizeTask(user, taskId);
   const db = await getDb();
-  const [row] = await db
-    .update(tasks)
-    .set({ deletedAt: null })
-    .where(and(eq(tasks.id, taskId), isNotNull(tasks.deletedAt)))
-    .returning();
-  if (!row) throw new NotFoundError("Task not found");
-  return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(tasks)
+      .set({ deletedAt: null })
+      .where(and(eq(tasks.id, taskId), isNotNull(tasks.deletedAt)))
+      .returning();
+    if (!row) throw new NotFoundError("Task not found");
+    // A doing/pending task whose owner left the team meanwhile can't stay owned: back to unassigned.
+    // Assigned tasks were already reset by removeMember; succeeded tasks keep their owner.
+    if (row.ownerId !== null && (row.status === "doing" || row.status === "pending")) {
+      const member = await tx
+        .select({ id: teamMembers.userId })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, row.ownerId)));
+      if (member.length === 0) {
+        const [reset] = await tx
+          .update(tasks)
+          .set({ status: "unassigned", ownerId: null, stuckReason: null })
+          .where(eq(tasks.id, taskId))
+          .returning();
+        return reset;
+      }
+    }
+    return row;
+  });
 }
 
 /** Not user-scoped: called by the cron job. Permanently removes tasks deleted over 30 days before `now`. */

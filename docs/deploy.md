@@ -28,6 +28,7 @@ Open your app service, then the **Variables** tab, and add:
 | `OWNER_EMAIL` | Your Google account email. This account can always sign in. |
 | `CRON_SECRET` | Another long random string. It protects the daily cleanup (step 6). |
 | `AUTH_TRUST_HOST` | `true` |
+| `APP_TIME_ZONE` | Optional. The time zone used to decide what "today" is for due-date colors, e.g. `America/Toronto`. Railway servers run in UTC, so set this to your own zone. If unset it defaults to `America/Toronto`. |
 
 Why `AUTH_TRUST_HOST`: in the installed Auth.js source (`node_modules/@auth/core/lib/utils/env.js`), host trust defaults to on only when `AUTH_URL`, `AUTH_TRUST_HOST`, `VERCEL` or `CF_PAGES` is set, or when not in production. On Railway none of those exist, so without `AUTH_TRUST_HOST=true` sign-in fails with an "UntrustedHost" error. You do not need to set `AUTH_URL`: with trusted host, Auth.js builds the address from the request headers Railway's proxy sends.
 

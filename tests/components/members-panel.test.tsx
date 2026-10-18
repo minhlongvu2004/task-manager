@@ -76,11 +76,11 @@ describe("MembersPanel", () => {
   });
 
   it("deleting a team that has projects shows the block message", async () => {
-    mocks.deleteTeamAction.mockResolvedValue({ ok: false, error: "Delete or move this team's projects first" });
+    mocks.deleteTeamAction.mockResolvedValue({ ok: false, error: "This team still has 2 projects (archived ones count). Teams with projects can't be deleted." });
     const { onClose } = panel();
     await userEvent.click(screen.getByRole("button", { name: "Delete team" }));
     expect(mocks.deleteTeamAction).toHaveBeenCalledWith("t1");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Delete or move this team's projects first");
+    expect(await screen.findByRole("alert")).toHaveTextContent("This team still has 2 projects (archived ones count). Teams with projects can't be deleted.");
     expect(onClose).not.toHaveBeenCalled();
   });
 });

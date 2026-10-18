@@ -61,3 +61,15 @@ describe("KeyboardNav", () => {
     expect(getByText(/Enter to open/)).toBeInTheDocument();
   });
 });
+
+describe("handleProjectKeys with a dialog open", () => {
+  it("does nothing while a dialog is open", () => {
+    const rows = setup();
+    document.body.insertAdjacentHTML("beforeend", '<div role="dialog"></div>');
+    const navigate = vi.fn();
+    handleProjectKeys(key("n"), { root: document, navigate });
+    handleProjectKeys(key("ArrowDown"), { root: document, navigate });
+    expect(navigate).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(rows[0]);
+  });
+});

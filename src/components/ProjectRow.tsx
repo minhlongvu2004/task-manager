@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PriorityLabel } from "./PriorityLabel";
 import { dueState, type Priority } from "@/lib/domain/project-view";
 import { STATUS_LABEL, STATUS_ORDER, type TaskStatus } from "@/lib/domain/status";
 
@@ -20,9 +21,9 @@ function formatDue(date: string): string {
 const STATUS_TEXT: Record<TaskStatus, string> = {
   unassigned: "text-zinc-500",
   assigned: "text-zinc-500",
-  doing: "text-blue-600",
+  doing: "text-zinc-500",
   pending: "text-amber-600 font-semibold", // amber is reserved for Pending
-  succeeded: "text-green-600",
+  succeeded: "text-zinc-500",
 };
 
 export function ProjectRow({
@@ -51,16 +52,7 @@ export function ProjectRow({
             Archived
           </span>
         )}
-        {project.priority === "urgent" && (
-          <span className="ml-2 rounded-md bg-red-100 px-1.5 py-0.5 align-[1px] text-[10px] font-bold tracking-wider text-red-700">
-            URGENT
-          </span>
-        )}
-        {project.priority === "high" && (
-          <span className="ml-2 rounded-md bg-orange-100 px-1.5 py-0.5 align-[1px] text-[10px] font-bold tracking-wider text-orange-700">
-            HIGH
-          </span>
-        )}
+        <PriorityLabel priority={project.priority} />
       </span>
       <span className="flex flex-wrap gap-x-3.5 text-xs">
         {STATUS_ORDER.map((s) => (

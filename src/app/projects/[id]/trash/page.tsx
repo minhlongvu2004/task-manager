@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { RestoreButton } from "@/components/RestoreButton";
 import { Sidebar } from "@/components/Sidebar";
 import { getSessionUser } from "@/server/access";
 import { NotFoundError } from "@/server/errors";
 import { getProject } from "@/server/projects";
 import { listTrash } from "@/server/tasks";
-import { restoreTaskAction } from "../actions";
 
 export default function TrashPage({ params }: PageProps<"/projects/[id]/trash">) {
   return (
@@ -49,16 +49,7 @@ async function TrashContent({ params }: Pick<PageProps<"/projects/[id]/trash">, 
             {rows.map((t) => (
               <li key={t.id} className="flex items-center gap-3 border-t border-zinc-100 px-4 py-2.5 first:border-t-0">
                 <span className="min-w-0 flex-1 break-words">{t.title}</span>
-                <form
-                  action={async () => {
-                    "use server";
-                    await restoreTaskAction(t.id);
-                  }}
-                >
-                  <button type="submit" className="text-sm font-semibold text-indigo-700 hover:underline">
-                    Restore
-                  </button>
-                </form>
+                <RestoreButton taskId={t.id} />
               </li>
             ))}
           </ul>
