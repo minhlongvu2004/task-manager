@@ -1,10 +1,21 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { safeCallbackPath } from "@/server/email";
 
 // Opening this page changes nothing, so mail scanners that fetch the emailed link do not spend the
 // one-time token. Only pressing the button (a POST) sends the browser on to the real callback.
-export default async function ConfirmSignInPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
+export default function ConfirmSignInPage({ searchParams }: PageProps<"/signin/confirm">) {
+  // cacheComponents: searchParams is request-time data, so it is read inside Suspense.
+  return (
+    <Suspense fallback={null}>
+      <ConfirmContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function ConfirmContent({ searchParams }: Pick<PageProps<"/signin/confirm">, "searchParams">) {
+  const params = await searchParams;
+  const next = typeof params.next === "string" ? params.next : undefined;
   const target = safeCallbackPath(next);
   return (
     <main className="flex flex-1 items-center justify-center bg-white px-4 text-zinc-900">

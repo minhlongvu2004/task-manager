@@ -28,9 +28,10 @@ Open your app service, then the **Variables** tab, and add:
 | `OWNER_EMAIL` | Your Google account email. This account can always sign in. |
 | `CRON_SECRET` | Another long random string. It protects the daily cleanup (step 6). |
 | `AUTH_TRUST_HOST` | `true` |
+| `AUTH_URL` | The public address from step 4, with `https://` and no trailing slash, e.g. `https://something.up.railway.app`. Required: without it, sign-in links and redirects point to `localhost:8080`. Set it after step 4, then redeploy. |
 | `APP_TIME_ZONE` | Optional. The time zone used to decide what "today" is for due-date colors, e.g. `America/Toronto`. Railway servers run in UTC, so set this to your own zone. If unset it defaults to `America/Toronto`. |
 
-Why `AUTH_TRUST_HOST`: in the installed Auth.js source (`node_modules/@auth/core/lib/utils/env.js`), host trust defaults to on only when `AUTH_URL`, `AUTH_TRUST_HOST`, `VERCEL` or `CF_PAGES` is set, or when not in production. On Railway none of those exist, so without `AUTH_TRUST_HOST=true` sign-in fails with an "UntrustedHost" error. You do not need to set `AUTH_URL`: with trusted host, Auth.js builds the address from the request headers Railway's proxy sends.
+Why `AUTH_TRUST_HOST`: in the installed Auth.js source (`node_modules/@auth/core/lib/utils/env.js`), host trust defaults to on only when `AUTH_URL`, `AUTH_TRUST_HOST`, `VERCEL` or `CF_PAGES` is set, or when not in production. On Railway none of those exist, so without `AUTH_TRUST_HOST=true` sign-in fails with an "UntrustedHost" error. `AUTH_URL` is also required on Railway: the app runs behind Railway's proxy on an internal port, so without it Auth.js builds sign-in links and redirects from `localhost:8080` (seen on a real deploy).
 
 If the app fails to start with "DATABASE_URL is not set", the reference in the first row is missing. This is deliberate: the app refuses to run without a database instead of quietly using a throwaway local one.
 
