@@ -1,6 +1,8 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { signIn } from "@/auth";
+import { isEmailAllowed } from "@/server/access";
 
 export default function SignInPage() {
   return (
@@ -41,7 +43,10 @@ async function EmailForm() {
           className="space-y-3"
           action={async (formData: FormData) => {
             "use server";
-            await signIn("resend", { email: String(formData.get("email") ?? ""), redirectTo: "/" });
+            const email = String(formData.get("email") ?? "");
+            // Say so plainly when the address is not invited, instead of sending nothing.
+            if (!(await isEmailAllowed(email))) redirect("/not-invited");
+            await signIn("resend", { email, redirectTo: "/" });
           }}
         >
           <label className="sr-only" htmlFor="email">

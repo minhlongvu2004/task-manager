@@ -3,7 +3,7 @@
 Email sign-in lets invited people get a one-time link by email instead of using Google. It stays switched off until you add the key in step 4, so nothing changes until you are ready.
 
 ## Before you start
-- Only addresses on the invite list (or the owner) ever receive a link. Anyone else sees the same "If that address is invited, a sign-in link is on its way." screen and gets nothing.
+- Only addresses on the invite list (or the owner) ever receive a link. Anyone else is sent to a "This email is not invited" screen that tells them to contact the host (OWNER_EMAIL), and gets nothing.
 - Links work once and expire after 15 minutes.
 
 ## Steps
