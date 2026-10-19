@@ -107,8 +107,8 @@ Marked above as assumed or the author's choice:
 
 ## Calls made after the builder check (author's calls, change any of them)
 
-- **Who can sign in:** an allowlist of Google accounts. Version 1 allows only the owner's account, so a public Railway address cannot be used by strangers. Adding a person means adding their email to the list.
-- **Sidebar in version 1:** only Projects. "My tasks", "Teams" and "Settings" are left out. Teams are created with a "+ New team" action on the Projects screen (name and color). Members are added by email from the allowlist; with one user, the team has one member.
+- **Who can sign in:** an allowlist of Google accounts. Version 1 allows only the owner's account, so a public Railway address cannot be used by strangers. The owner adds and removes people on the People page; being on the list gives no access to any team.
+- **Sidebar in version 1:** only Projects. "My tasks", "Teams" and "Settings" are left out. Teams are created with a "+ New team" action on the Projects screen (name and color). Members are added by email, and only people already on the invited list can be added. Teams are private to their members; the owner has no special view into other people's teams.
 - **Owner picker:** lists the members of the project's team.
 - **Who sees what:** the workspace owner sees every team. Everyone else sees only the teams they belong to. Anyone in a team can create and edit projects and tasks in it.
 - **Ordering:** projects sort by priority, then by due date. Tasks in a tab sort by due date (no date last), then by creation time. No manual reordering in version 1.

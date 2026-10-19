@@ -77,7 +77,7 @@ async function ProjectsContent({ searchParams }: Pick<PageProps<"/">, "searchPar
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900 sm:flex-row">
-      <Sidebar />
+      <Sidebar showPeople={user.isWorkspaceOwner} />
       <main className="mx-auto w-full max-w-[980px] flex-1 px-4 pb-8 sm:px-7">
         <div className="flex flex-wrap items-center gap-2.5 py-4">
           <h1 className="flex-1 text-lg font-bold">Projects</h1>

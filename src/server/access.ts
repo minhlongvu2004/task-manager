@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { allowedEmails, teamMembers, teams, users, workspaces } from "@/db/schema";
+import { allowedEmails, teamMembers, users, workspaces } from "@/db/schema";
 import { NotFoundError } from "./errors";
 
 export type SessionUser = { id: string; email: string; isWorkspaceOwner: boolean };
@@ -74,33 +74,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   return { id: user.id, email: user.email, isWorkspaceOwner: Boolean(ws) };
 }
 
-/** Owner: every team in their workspace. Otherwise: teams the user is a member of. */
+/** Teams the user is a member of. Teams are private: the owner has no special view into other people's teams. */
 export async function visibleTeamIds(user: SessionUser): Promise<string[]> {
   const db = await getDb();
-  if (user.isWorkspaceOwner) {
-    const rows = await db
-      .select({ id: teams.id })
-      .from(teams)
-      .innerJoin(workspaces, eq(teams.workspaceId, workspaces.id))
-      .where(eq(workspaces.ownerUserId, user.id));
-    return rows.map((r) => r.id);
-  }
   const rows = await db.select({ id: teamMembers.teamId }).from(teamMembers).where(eq(teamMembers.userId, user.id));
   return rows.map((r) => r.id);
 }
 
-/** Throws NotFoundError (not a "forbidden") when the user cannot see the team. */
+/** Throws NotFoundError (not a "forbidden") when the user is not a member of the team. */
 export async function assertCanSeeTeam(user: SessionUser, teamId: string): Promise<void> {
   const db = await getDb();
-  const rows = user.isWorkspaceOwner
-    ? await db
-        .select({ id: teams.id })
-        .from(teams)
-        .innerJoin(workspaces, eq(teams.workspaceId, workspaces.id))
-        .where(and(eq(teams.id, teamId), eq(workspaces.ownerUserId, user.id)))
-    : await db
-        .select({ id: teamMembers.teamId })
-        .from(teamMembers)
-        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, user.id)));
+  const rows = await db
+    .select({ id: teamMembers.teamId })
+    .from(teamMembers)
+    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, user.id)));
   if (rows.length === 0) throw new NotFoundError("Team not found");
 }

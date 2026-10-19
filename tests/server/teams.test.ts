@@ -15,7 +15,7 @@ beforeEach(async () => {
 });
 
 describe("teams", () => {
-  it("createTeam adds the creator as member; owner sees all teams, members only theirs", async () => {
+  it("createTeam adds the creator as member; everyone sees only teams they belong to, the owner included", async () => {
     const t = await createTeam(owner, { name: "Alpha", color: "#ff0000" });
     const members = await listTeamMembers(owner, t.id);
     expect(members.map((m) => m.email)).toContain("owner@example.com");
@@ -24,6 +24,15 @@ describe("teams", () => {
     expect((await listTeams(owner)).map((x) => x.name).sort()).toEqual(["Alpha", "Beta"]);
     expect((await listTeams(alice)).map((x) => x.name)).toEqual(["Alpha"]);
     expect(await listTeams(bob)).toEqual([]);
+  });
+
+  it("a team an invited person creates is private: the owner cannot see or open it", async () => {
+    const t = await createTeam(alice, { name: "Alice only", color: "#123456" });
+    expect((await listTeams(alice)).map((x) => x.name)).toEqual(["Alice only"]);
+    expect(await listTeams(owner)).toEqual([]);
+    await expect(listTeamMembers(owner, t.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(addMemberByEmail(owner, t.id, "bob@example.com")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(createProject(owner, { teamId: t.id, name: "P", priority: "normal", dueDate: null })).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("validates name and color", async () => {
@@ -40,6 +49,7 @@ describe("teams", () => {
 
   it("addMemberByEmail works for never-signed-in email and sign-in reuses the row", async () => {
     const t = await createTeam(owner, { name: "T", color: "#ffffff" });
+    await db.insert(allowedEmails).values({ email: "new@example.com" }); // invited on the People page
     const m = await addMemberByEmail(owner, t.id, "  New@Example.COM ");
     expect(m.email).toBe("new@example.com");
     expect(m.name).toBeNull();
@@ -67,19 +77,20 @@ describe("teams", () => {
     expect(m.id).toBe(bob.id);
   });
 
-  it("only the workspace owner can invite a brand-new email", async () => {
+  it("only people already on the invited list can be added to a team, and adding never invites", async () => {
     const t = await createTeam(owner, { name: "T", color: "#ffffff" });
     await addMemberByEmail(owner, t.id, "alice@example.com");
-    const m = await addMemberByEmail(owner, t.id, "fresh@example.com");
-    expect(m.email).toBe("fresh@example.com");
-    await expect(addMemberByEmail(alice, t.id, "stranger@example.com")).rejects.toThrow(
-      "Ask the workspace owner to invite them first",
-    );
+    // neither the owner nor a plain member can add someone who has not been invited
+    for (const who of [owner, alice]) {
+      await expect(addMemberByEmail(who, t.id, "stranger@example.com")).rejects.toThrow("is not on the People list");
+    }
     expect(await db.select().from(allowedEmails).where(eq(allowedEmails.email, "stranger@example.com"))).toHaveLength(0);
     expect(await db.select().from(users).where(eq(users.email, "stranger@example.com"))).toHaveLength(0);
-    // already allowed (bob) is fine, and so is a never-signed-in allowed email
+    // invited people (even ones who have never signed in) can be added by any member
     expect((await addMemberByEmail(alice, t.id, "bob@example.com")).id).toBe(bob.id);
-    expect((await addMemberByEmail(alice, t.id, "FRESH@example.com")).id).toBe(m.id);
+    await db.insert(allowedEmails).values({ email: "fresh@example.com" });
+    const m = await addMemberByEmail(alice, t.id, "FRESH@example.com");
+    expect(m.email).toBe("fresh@example.com");
   });
 
   describe("removeMember", () => {

@@ -32,5 +32,5 @@ Production env vars: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOG
 
 ## Owner notes
 
-- Revoking an invited email: run `delete from allowed_emails where email = '<lowercase email>'` against the database. Their sessions stop working immediately, because `getSessionUser` re-checks the allowlist on every request.
+- Inviting and revoking: the owner uses the **People** page in the sidebar. Removing someone stops them signing in at once (`getSessionUser` re-checks the list on every request) but keeps their account, team memberships and tasks. Being invited gives no access to any team: teams are private, and the owner sees only the teams they belong to. The team **Members** popup only accepts people already on the People list.
 - Changing `OWNER_EMAIL` later does not move workspace ownership: the existing owner keeps it.

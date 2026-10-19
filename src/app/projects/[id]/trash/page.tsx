@@ -33,7 +33,7 @@ async function TrashContent({ params }: Pick<PageProps<"/projects/[id]/trash">, 
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900 sm:flex-row">
-      <Sidebar />
+      <Sidebar showPeople={user.isWorkspaceOwner} />
       <main className="mx-auto w-full max-w-[760px] flex-1 px-4 pb-8 sm:px-7">
         <Link href={`/projects/${id}`} className="inline-block py-3 text-sm text-zinc-500 hover:text-zinc-800">
           &larr; {project.name}

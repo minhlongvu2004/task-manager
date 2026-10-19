@@ -29,8 +29,10 @@ beforeEach(async () => {
 });
 
 describe("visibleTeamIds", () => {
-  it("returns every team for the owner", async () => {
-    expect((await visibleTeamIds(owner)).sort()).toEqual([t1, t2].sort());
+  it("returns only the teams the owner has joined, like everyone else", async () => {
+    expect(await visibleTeamIds(owner)).toEqual([]);
+    await db.insert(teamMembers).values({ teamId: t2, userId: owner.id });
+    expect(await visibleTeamIds(owner)).toEqual([t2]);
   });
   it("returns only joined teams for a member", async () => {
     expect(await visibleTeamIds(member)).toEqual([t1]);
@@ -42,12 +44,12 @@ describe("visibleTeamIds", () => {
 });
 
 describe("assertCanSeeTeam", () => {
-  it("passes for the owner and for a member of the team", async () => {
-    await expect(assertCanSeeTeam(owner, t2)).resolves.toBeUndefined();
+  it("passes for a member of the team", async () => {
     await expect(assertCanSeeTeam(member, t1)).resolves.toBeUndefined();
   });
-  it("throws NotFoundError for a non-member", async () => {
+  it("throws NotFoundError for a non-member, the owner included", async () => {
     await expect(assertCanSeeTeam(member, t2)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(assertCanSeeTeam(owner, t1)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

@@ -65,7 +65,7 @@ async function ProjectContent({ params, searchParams }: Pick<PageProps<"/project
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900 sm:flex-row">
-      <Sidebar />
+      <Sidebar showPeople={user.isWorkspaceOwner} />
       <main className="mx-auto w-full max-w-[1100px] flex-1 px-4 pb-8 sm:px-7">
         <Link href="/" className="inline-block py-3 text-sm text-zinc-500 hover:text-zinc-800">
           &larr; Projects

@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { allowedEmails, projects, tasks, teamMembers, teams, users, workspaces } from "@/db/schema";
+import { projects, tasks, teamMembers, teams, users, workspaces } from "@/db/schema";
 import { isEmailAllowed, normalizeEmail, visibleTeamIds, type SessionUser } from "./access";
 import { BlockedError } from "./errors";
 import { authorizeTeam, checkName, isUuid } from "./guards";
@@ -46,13 +46,13 @@ export async function addMemberByEmail(user: SessionUser, teamId: string, rawEma
   await authorizeTeam(user, teamId);
   const email = normalizeEmail(rawEmail ?? "");
   if (!EMAIL.test(email)) throw new BlockedError("Enter a valid email address");
-  // Only the workspace owner may invite a brand-new email; members can add people already allowed.
-  if (!user.isWorkspaceOwner && !(await isEmailAllowed(email))) {
-    throw new BlockedError("Ask the workspace owner to invite them first");
+  // Team membership and sign-in access are separate: only people the owner invited on the People page
+  // can be added, and adding someone never invites them.
+  if (!(await isEmailAllowed(email))) {
+    throw new BlockedError("That person is not on the People list. The owner can invite them on the People page.");
   }
   const db = await getDb();
   return db.transaction(async (tx) => {
-    await tx.insert(allowedEmails).values({ email }).onConflictDoNothing();
     await tx.insert(users).values({ email }).onConflictDoNothing();
     const [u] = await tx.select({ id: users.id, email: users.email, name: users.name }).from(users).where(eq(users.email, email));
     await tx.insert(teamMembers).values({ teamId, userId: u.id }).onConflictDoNothing();
